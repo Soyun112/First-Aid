@@ -29,27 +29,3 @@ export const FLOOR_PLAN = {
     { x: 680, y: 104 },
   ],
 };
-
-/** 편안함 이미지 플레이스홀더 (크로스페이드용) */
-export const COMFORT_SCENES = [
-  {
-    id: 'sky',
-    label: '하늘',
-    gradient: 'linear-gradient(165deg, #1a2838 0%, #3a5a7a 45%, #6a9ab8 100%)',
-  },
-  {
-    id: 'forest',
-    label: '숲',
-    gradient: 'linear-gradient(165deg, #142018 0%, #2a4838 50%, #4a6858 100%)',
-  },
-  {
-    id: 'ocean',
-    label: '바다',
-    gradient: 'linear-gradient(165deg, #0f2028 0%, #1a4050 50%, #3a7088 100%)',
-  },
-  {
-    id: 'dusk',
-    label: '노을',
-    gradient: 'linear-gradient(165deg, #281820 0%, #584038 50%, #887060 100%)',
-  },
-];

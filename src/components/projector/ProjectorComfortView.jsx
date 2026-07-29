@@ -1,23 +1,68 @@
 import { useEffect, useRef, useState } from 'react';
-import { COMFORT_SCENES } from '../../data/floorPlan';
+import { loadComfortArtworks } from '../../services/metArt';
 
-const SLIDE_MS = 7000;
-const FADE_MS = 1400;
+const SLIDE_MS = 8000;
+const FADE_MS = 1600;
+const LOADING_BG = '#1a2830';
 
 /**
  * 빔 출력 — 편안함 이미지 모드
- * 풀스크린 크로스페이드 (플레이스홀더 그라데이션)
- * TODO: 실제 빔 콘텐츠/이미지·영상 에셋 연동
+ * The Met 공개 도메인 작품을 캐시 후 크로스페이드 순환
  */
 export default function ProjectorComfortView() {
+  const [artworks, setArtworks] = useState([]);
+  const [status, setStatus] = useState('loading'); // loading | ready | error
   const indexRef = useRef(0);
   const [indices, setIndices] = useState([0, 1]);
   const [showFirst, setShowFirst] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
+    loadComfortArtworks().then((list) => {
+      if (cancelled) return;
+      if (list.length >= 2) {
+        setArtworks(list);
+        setIndices([0, 1 % list.length]);
+        indexRef.current = 0;
+        setStatus('ready');
+      } else if (list.length === 1) {
+        setArtworks(list);
+        setIndices([0, 0]);
+        setStatus('ready');
+      } else {
+        setStatus('error');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 다음 이미지 프리로드
+  useEffect(() => {
+    if (status !== 'ready' || artworks.length < 2) return undefined;
+    const next = artworks[(indexRef.current + 1) % artworks.length];
+    if (!next?.imageUrl) return undefined;
+    const img = new Image();
+    img.src = next.imageUrl;
+    return undefined;
+  }, [status, artworks, showFirst]);
+
+  useEffect(() => {
+    if (status !== 'ready' || artworks.length < 2) return undefined;
+
     const id = setInterval(() => {
-      const next = (indexRef.current + 1) % COMFORT_SCENES.length;
+      const next = (indexRef.current + 1) % artworks.length;
       indexRef.current = next;
+
+      // 다음 다음 이미지 프리로드
+      const preload = artworks[(next + 1) % artworks.length];
+      if (preload?.imageUrl) {
+        const img = new Image();
+        img.src = preload.imageUrl;
+      }
 
       setShowFirst((visible) => {
         setIndices((prev) => {
@@ -29,33 +74,58 @@ export default function ProjectorComfortView() {
     }, SLIDE_MS);
 
     return () => clearInterval(id);
-  }, []);
+  }, [status, artworks]);
 
-  const scene0 = COMFORT_SCENES[indices[0]];
-  const scene1 = COMFORT_SCENES[indices[1]];
+  if (status === 'loading') {
+    return (
+      <div className="proj-comfort proj-comfort--loading" style={{ background: LOADING_BG }}>
+        <p className="proj-comfort__loading-text">작품을 불러오는 중…</p>
+      </div>
+    );
+  }
+
+  if (status === 'error' || !artworks.length) {
+    return (
+      <div className="proj-comfort proj-comfort--loading" style={{ background: LOADING_BG }}>
+        <p className="proj-comfort__loading-text">잠시만 기다려 주세요</p>
+      </div>
+    );
+  }
+
+  const art0 = artworks[indices[0]];
+  const art1 = artworks[indices[1]];
+  const current = showFirst ? art0 : art1;
 
   return (
     <div className="proj-comfort" aria-live="polite">
       <div
         className={`proj-comfort__layer ${showFirst ? 'is-visible' : ''}`}
-        style={{
-          background: scene0.gradient,
-          transitionDuration: `${FADE_MS}ms`,
-        }}
+        style={{ transitionDuration: `${FADE_MS}ms` }}
       >
-        <div className="proj-comfort__glow" />
-        <p className="proj-comfort__label">{scene0.label}</p>
+        <img
+          className="proj-comfort__image"
+          src={art0.imageUrl}
+          alt={art0.title}
+          draggable={false}
+        />
       </div>
       <div
         className={`proj-comfort__layer ${!showFirst ? 'is-visible' : ''}`}
-        style={{
-          background: scene1.gradient,
-          transitionDuration: `${FADE_MS}ms`,
-        }}
+        style={{ transitionDuration: `${FADE_MS}ms` }}
       >
-        <div className="proj-comfort__glow" />
-        <p className="proj-comfort__label">{scene1.label}</p>
+        <img
+          className="proj-comfort__image"
+          src={art1.imageUrl}
+          alt={art1.title}
+          draggable={false}
+        />
       </div>
+
+      <footer className="proj-comfort__caption">
+        <p className="proj-comfort__title">{current.title}</p>
+        <p className="proj-comfort__artist">{current.artist}</p>
+        <p className="proj-comfort__credit">The Metropolitan Museum of Art</p>
+      </footer>
     </div>
   );
 }
