@@ -1,6 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './context/AuthContext';
 import { TransportProvider } from './context/TransportContext';
+import EntryPage from './pages/EntryPage';
 import InputPage from './pages/InputPage';
 import PlaybackPage from './pages/PlaybackPage';
 import ProjectorPage from './pages/ProjectorPage';
@@ -16,50 +19,63 @@ function StaffLayout({ children }) {
   );
 }
 
+function ProtectedStaff({ children }) {
+  return (
+    <ProtectedRoute>
+      <StaffLayout>{children}</StaffLayout>
+    </ProtectedRoute>
+  );
+}
+
 export default function App() {
   return (
-    <TransportProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* B. 빔 출력 화면 — 헤더/조작 UI 없음 */}
-          <Route path="/projector" element={<ProjectorPage />} />
+    <AuthProvider>
+      <TransportProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* 입장 (코드 입력) */}
+            <Route path="/" element={<EntryPage />} />
 
-          {/* A. 직원 조작 화면 */}
-          <Route
-            path="/"
-            element={
-              <StaffLayout>
-                <InputPage />
-              </StaffLayout>
-            }
-          />
-          <Route
-            path="/recommend"
-            element={
-              <StaffLayout>
-                <RecommendPage />
-              </StaffLayout>
-            }
-          />
-          <Route
-            path="/playback"
-            element={
-              <StaffLayout>
-                <PlaybackPage />
-              </StaffLayout>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <StaffLayout>
-                <SettingsPage />
-              </StaffLayout>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </TransportProvider>
+            {/* B. 빔 출력 — 별도 창, 인증 없음 */}
+            <Route path="/projector" element={<ProjectorPage />} />
+
+            {/* A. 직원 조작 — 인증 필요 */}
+            <Route
+              path="/input"
+              element={
+                <ProtectedStaff>
+                  <InputPage />
+                </ProtectedStaff>
+              }
+            />
+            <Route
+              path="/recommend"
+              element={
+                <ProtectedStaff>
+                  <RecommendPage />
+                </ProtectedStaff>
+              }
+            />
+            <Route
+              path="/playback"
+              element={
+                <ProtectedStaff>
+                  <PlaybackPage />
+                </ProtectedStaff>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedStaff>
+                  <SettingsPage />
+                </ProtectedStaff>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </TransportProvider>
+    </AuthProvider>
   );
 }

@@ -101,7 +101,7 @@ export default function PlaybackPage() {
     stopSpeaking();
     publishProjectorState(createIdleProjectorState());
     resetSession();
-    navigate('/');
+    navigate('/input');
   };
 
   return (

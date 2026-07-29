@@ -50,7 +50,7 @@ export default function RecommendPage() {
         <button
           type="button"
           className="btn btn--ghost"
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/input')}
         >
           다시 선택
         </button>

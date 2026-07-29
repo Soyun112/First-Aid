@@ -41,7 +41,7 @@ export default function SettingsPage() {
       <section className="settings-block">
         <h2>화면 구성</h2>
         <ul className="settings-list">
-          <li>직원 조작: `/` → 추천 → `/playback` (리모컨)</li>
+          <li>직원 조작: `/` (코드 입력) → `/input` → 추천 → `/playback`</li>
           <li>빔 출력: `/projector` (천장 투사 시뮬레이션, 별도 창)</li>
           <li>두 창은 BroadcastChannel + localStorage로 동기화됩니다.</li>
         </ul>

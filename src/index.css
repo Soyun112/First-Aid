@@ -707,6 +707,97 @@ a {
   color: rgba(20, 40, 40, 0.7);
 }
 
+/* —— Entry (access gate) —— */
+.entry {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: linear-gradient(160deg, #eef5f5 0%, #f7fafb 45%, #e4f2f2 100%);
+}
+
+.entry__card {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px 24px 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.entry__badge {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+
+.entry__hospital {
+  margin: 0 0 6px;
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.entry__subtitle {
+  margin: 0 0 20px;
+  font-size: 1.05rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.entry__desc {
+  margin: 0 0 24px;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.entry__form {
+  text-align: left;
+}
+
+.entry__label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.entry__input {
+  width: 100%;
+  min-height: 52px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1.1rem;
+  background: var(--bg);
+}
+
+.entry__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.entry__error {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--danger);
+}
+
+.entry__form .btn {
+  margin-top: 4px;
+}
+
 /* —— Desktop widen slightly —— */
 @media (min-width: 640px) {
   .app-shell {
