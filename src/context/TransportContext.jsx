@@ -13,6 +13,10 @@ export function TransportProvider({ children }) {
   const [recommendations, setRecommendations] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [defaultVolume, setDefaultVolume] = useState(VOLUME_DEFAULT);
+  const [aiMessage, setAiMessage] = useState('');
+  const [aiMessageSource, setAiMessageSource] = useState(null);
+  const [aiMessageLoading, setAiMessageLoading] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   const updateInput = useCallback((key, value) => {
     setInput((prev) => ({ ...prev, [key]: value }));
@@ -32,8 +36,17 @@ export function TransportProvider({ children }) {
   const resetSession = useCallback(() => {
     setSelectedPlan(null);
     setRecommendations([]);
+    setAiMessage('');
+    setAiMessageSource(null);
+    setAiMessageLoading(false);
+    setAiPanelOpen(false);
     // TODO: 실제 빔 송출 종료 API
     publishProjectorState(createIdleProjectorState());
+  }, []);
+
+  const updateAiMessage = useCallback((message, source = 'api') => {
+    setAiMessage(message);
+    setAiMessageSource(source);
   }, []);
 
   const value = useMemo(
@@ -48,6 +61,13 @@ export function TransportProvider({ children }) {
       resetSession,
       defaultVolume,
       setDefaultVolume,
+      aiMessage,
+      aiMessageSource,
+      aiMessageLoading,
+      setAiMessageLoading,
+      updateAiMessage,
+      aiPanelOpen,
+      setAiPanelOpen,
     }),
     [
       input,
@@ -58,6 +78,11 @@ export function TransportProvider({ children }) {
       selectPlan,
       resetSession,
       defaultVolume,
+      aiMessage,
+      aiMessageSource,
+      aiMessageLoading,
+      updateAiMessage,
+      aiPanelOpen,
     ],
   );
 
