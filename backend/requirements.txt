@@ -1,6 +1,9 @@
-# First Aid backend — pip install -r requirements.txt
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-httpx==0.28.1
-pydantic==2.10.4
+# Render / pip — Python 3.11용 사전 빌드 wheel이 있는 고정 버전
+# (pydantic-core 소스 컴파일 방지)
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-core==2.23.4
+httpx==0.27.2
 python-dotenv==1.0.1
