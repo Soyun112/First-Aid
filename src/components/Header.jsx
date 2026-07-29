@@ -11,8 +11,16 @@ export default function Header() {
     aiMessageLoading,
     aiPanelOpen,
     setAiPanelOpen,
+    requestAiMessage,
     input,
   } = useTransport();
+
+  const handleOpenPanel = async () => {
+    setAiPanelOpen(true);
+    if (!aiMessageLoading) {
+      await requestAiMessage({ speak: false });
+    }
+  };
 
   return (
     <>
@@ -29,7 +37,7 @@ export default function Header() {
           <button
             type="button"
             className={`app-header__icon-btn ${aiMessage ? 'has-message' : ''}`}
-            onClick={() => setAiPanelOpen(true)}
+            onClick={handleOpenPanel}
             aria-label="AI 생성 멘트 확인"
             title="AI 생성 멘트 확인"
           >

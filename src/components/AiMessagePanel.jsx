@@ -31,13 +31,20 @@ export default function AiMessagePanel({ open, onClose, message, input, source, 
           </button>
         </header>
 
-        <p className="ai-panel__badge">
-          AI가 이 상황에 맞춰 실시간 생성한 멘트입니다
-        </p>
+        {source === 'api' && message && !loading && (
+          <p className="ai-panel__badge">
+            AI가 이 상황에 맞춰 실시간 생성한 멘트입니다
+          </p>
+        )}
 
         <div className="ai-panel__message" aria-live="polite">
           {loading ? (
-            <p className="ai-panel__placeholder">멘트를 생성하는 중…</p>
+            <div className="ai-panel__loading">
+              <p className="ai-panel__placeholder">Gemini가 멘트를 생성하는 중…</p>
+              <p className="ai-panel__loading-sub">
+                서버가 잠들어 있었다면 30초~1분 정도 걸릴 수 있어요
+              </p>
+            </div>
           ) : message ? (
             <p className="ai-panel__text">{message}</p>
           ) : (
@@ -72,9 +79,10 @@ export default function AiMessagePanel({ open, onClose, message, input, source, 
           </dl>
         )}
 
-        {source === 'fallback' && message && (
+        {source === 'fallback' && message && !loading && (
           <p className="ai-panel__note">
-            ※ API 연결이 안 되어 기본 멘트를 표시 중일 수 있습니다.
+            ※ API 연결이 안 되어 기본 멘트를 표시 중입니다. VITE_API_URL과
+            Render CORS 설정을 확인해 주세요.
           </p>
         )}
       </div>

@@ -231,6 +231,17 @@ a {
   text-align: center;
 }
 
+.ai-panel__loading {
+  text-align: center;
+}
+
+.ai-panel__loading-sub {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .ai-panel__meta {
   display: grid;
   grid-template-columns: 1fr 1fr;

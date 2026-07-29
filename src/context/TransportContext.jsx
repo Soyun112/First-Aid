@@ -1,6 +1,8 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { DEFAULT_INPUT, VOLUME_DEFAULT } from '../data/options';
+import { fetchComfortMessage } from '../services/messageApi';
 import { recommend } from '../services/recommend';
+import { speak, stopSpeaking } from '../services/tts';
 import {
   createIdleProjectorState,
   publishProjectorState,
@@ -17,13 +19,13 @@ export function TransportProvider({ children }) {
   const [aiMessageSource, setAiMessageSource] = useState(null);
   const [aiMessageLoading, setAiMessageLoading] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const fetchLock = useRef(false);
 
   const updateInput = useCallback((key, value) => {
     setInput((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   const runRecommend = useCallback(() => {
-    // TODO: LLM API 연동 — recommend() 내부 교체
     const results = recommend(input);
     setRecommendations(results);
     return results;
@@ -40,14 +42,39 @@ export function TransportProvider({ children }) {
     setAiMessageSource(null);
     setAiMessageLoading(false);
     setAiPanelOpen(false);
-    // TODO: 실제 빔 송출 종료 API
+    stopSpeaking();
     publishProjectorState(createIdleProjectorState());
   }, []);
 
-  const updateAiMessage = useCallback((message, source = 'api') => {
-    setAiMessage(message);
-    setAiMessageSource(source);
-  }, []);
+  /**
+   * Gemini 멘트 요청 (공통)
+   * @param {{ speak?: boolean, volume?: number }} options
+   */
+  const requestAiMessage = useCallback(
+    async (options = {}) => {
+      const { speak: shouldSpeak = false, volume = defaultVolume } = options;
+
+      if (fetchLock.current) return null;
+      fetchLock.current = true;
+      setAiMessageLoading(true);
+
+      try {
+        const result = await fetchComfortMessage(input);
+        setAiMessage(result.message);
+        setAiMessageSource(result.source);
+
+        if (shouldSpeak) {
+          speak(result.message, { volume: Math.min(1, volume + 0.3) });
+        }
+
+        return result;
+      } finally {
+        setAiMessageLoading(false);
+        fetchLock.current = false;
+      }
+    },
+    [input, defaultVolume],
+  );
 
   const value = useMemo(
     () => ({
@@ -64,8 +91,7 @@ export function TransportProvider({ children }) {
       aiMessage,
       aiMessageSource,
       aiMessageLoading,
-      setAiMessageLoading,
-      updateAiMessage,
+      requestAiMessage,
       aiPanelOpen,
       setAiPanelOpen,
     }),
@@ -81,7 +107,7 @@ export function TransportProvider({ children }) {
       aiMessage,
       aiMessageSource,
       aiMessageLoading,
-      updateAiMessage,
+      requestAiMessage,
       aiPanelOpen,
     ],
   );
