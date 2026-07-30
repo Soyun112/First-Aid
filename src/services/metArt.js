@@ -7,19 +7,17 @@
  */
 
 const BASE_URL = 'https://collectionapi.metmuseum.org/public/collection/v1';
-const CACHE_KEY = 'first-aid-met-comfort';
+const CACHE_KEY = 'first-aid-met-comfort-v2';
 const TARGET_COUNT = 16;
 const SEARCH_QUERIES = [
-  'landscape',
   'water lilies',
-  'lake',
-  'calm sea',
-  'garden',
-  'meadow',
-  'river',
-  'impressionism',
-  'pastoral',
-  'spring',
+  'flower garden',
+  'spring blossom',
+  'sunlit meadow',
+  'calm lake',
+  'impressionism garden',
+  'peaceful landscape',
+  'blue sky',
 ];
 
 /** @typedef {{ id: number, title: string, artist: string, imageUrl: string, objectURL: string }} MetArtwork */

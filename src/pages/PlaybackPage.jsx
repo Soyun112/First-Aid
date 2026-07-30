@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import SoundControls from '../components/SoundControls';
+import SoundControls, { getInitialTrackId } from '../components/SoundControls';
 import { useTransport } from '../context/TransportContext';
-import { DURATIONS, SITUATIONS } from '../data/options';
+import {
+  BG_MUSIC_VOLUME,
+  DURATIONS,
+  SITUATIONS,
+  resolveTrackSrc,
+} from '../data/options';
 import {
   createIdleProjectorState,
   openProjectorWindow,
@@ -34,6 +39,9 @@ export default function PlaybackPage() {
     resetSession,
     defaultVolume,
     aiMessage,
+    requestAiMessage,
+    aiMessageLoading,
+    setAiPanelOpen,
   } = useTransport();
 
   const initialMode =
@@ -43,6 +51,14 @@ export default function PlaybackPage() {
   const [beamMode, setBeamMode] = useState(initialMode);
   const [beamEnabled, setBeamEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [trackId, setTrackId] = useState(() =>
+    getInitialTrackId(selectedPlan?.trackId, input.religion),
+  );
+  const [volume, setVolume] = useState(defaultVolume);
+  const [startHint, setStartHint] = useState('');
+  const [started, setStarted] = useState(false);
+
+  const audioRef = useRef(null);
 
   const totalSeconds = useMemo(() => {
     const d = DURATIONS.find((x) => x.id === input.duration);
@@ -64,6 +80,39 @@ export default function PlaybackPage() {
     }, 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+      const audio = audioRef.current;
+      if (audio) {
+        try {
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+  }, []);
+
+  // 사운드 끄기 → 즉시 정지 (빔과 독립)
+  useEffect(() => {
+    if (soundEnabled === false) {
+      stopSpeaking();
+      const audio = audioRef.current;
+      if (audio) {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch {
+          /* ignore */
+        }
+      }
+      setStarted(false);
+    }
+  }, [soundEnabled]);
 
   // 직원 조작 → 빔 창 동기화
   useEffect(() => {
@@ -98,8 +147,78 @@ export default function PlaybackPage() {
     return <Navigate to="/" replace />;
   }
 
-  const handleEnd = () => {
+  const stopAllAudio = () => {
     stopSpeaking();
+    const audio = audioRef.current;
+    if (!audio) return;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeAttribute('src');
+      audio.load();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const playSelectedMusic = async () => {
+    const audio = audioRef.current;
+    if (!audio) return false;
+
+    const resolved = resolveTrackSrc(trackId, input.religion);
+    if (resolved.needReligion) {
+      setStartHint('종교를 환자 입력에서 선택해 주세요');
+      return false;
+    }
+    if (!resolved.src) {
+      setStartHint('재생할 음원을 찾을 수 없습니다');
+      return false;
+    }
+
+    try {
+      // 단일 <audio>만 사용 — src 교체 전 완전 정지
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        /* ignore */
+      }
+      audio.loop = true;
+      audio.src = resolved.src;
+      audio.volume = BG_MUSIC_VOLUME;
+      audio.load();
+      await audio.play();
+      setStartHint('');
+      return true;
+    } catch (err) {
+      console.warn('배경음악 재생 실패:', resolved.src, err);
+      setStartHint(`재생할 수 없습니다 (${resolved.src})`);
+      return false;
+    }
+  };
+
+  const handleStart = async () => {
+    if (aiMessageLoading) return;
+
+    if (soundEnabled === false) {
+      setSoundEnabled(true);
+    }
+
+    setAiPanelOpen(true);
+    setStarted(true);
+
+    // TTS·이전 음악 모두 정지 후, 선택 트랙 1개만 재생
+    stopSpeaking();
+    await playSelectedMusic();
+
+    await requestAiMessage({
+      speak: true,
+      volume,
+    });
+  };
+
+  const handleEnd = () => {
+    stopAllAudio();
     publishProjectorState(createIdleProjectorState());
     resetSession();
     navigate('/input');
@@ -174,13 +293,17 @@ export default function PlaybackPage() {
 
       <SoundControls
         religion={input.religion}
-        initialTrackId={selectedPlan.trackId}
+        trackId={trackId}
+        onTrackChange={setTrackId}
         soundEnabled={soundEnabled}
         onSoundEnabledChange={setSoundEnabled}
-        defaultVolume={defaultVolume}
+        volume={volume}
+        onVolumeChange={setVolume}
       />
 
-      <div className="page__footer sticky-footer sticky-footer--row">
+      {startHint && <p className="playback-start-hint">{startHint}</p>}
+
+      <div className="page__footer sticky-footer sticky-footer--playback">
         <button
           type="button"
           className="btn btn--ghost"
@@ -188,10 +311,20 @@ export default function PlaybackPage() {
         >
           빔 미리보기
         </button>
+        <button
+          type="button"
+          className="btn btn--primary btn--sm playback-start-btn"
+          onClick={handleStart}
+          disabled={aiMessageLoading}
+        >
+          {aiMessageLoading ? '생성 중…' : started ? '다시 시작' : '시작'}
+        </button>
         <button type="button" className="btn btn--danger" onClick={handleEnd}>
           이송 종료
         </button>
       </div>
+
+      <audio ref={audioRef} preload="none" loop />
     </main>
   );
 }
