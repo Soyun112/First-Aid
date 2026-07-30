@@ -1,7 +1,9 @@
 /**
  * FastAPI 백엔드 — Gemini 안심 멘트 생성
- * 환경변수: VITE_API_URL
- * 배포: https://first-aid-77zc.onrender.com
+ *
+ * API 키는 프론트에 두지 않음.
+ * → Render 서버(GEMINI_API_KEY)만 사용
+ * → 프론트는 VITE_API_URL 로 백엔드 주소만 지정
  */
 
 export const API_BASE =
@@ -10,14 +12,16 @@ export const API_BASE =
 /** Render cold start 대비 (최대 90초) */
 const REQUEST_TIMEOUT_MS = 90_000;
 
-const LOCAL_FALLBACK =
+const DEFAULT_FALLBACK =
   '곧 도착해요. 무서워하지 않으셔도 괜찮아요. 천천히 이동하고 있습니다.';
 
 /**
- * @param {object} input — TransportContext input
+ * @param {object} input — TransportContext / projector input
+ * @param {{ fallback?: string }} [options]
  * @returns {Promise<{ message: string, source: 'api' | 'fallback', error?: string }>}
  */
-export async function fetchComfortMessage(input) {
+export async function fetchComfortMessage(input, options = {}) {
+  const fallback = options.fallback || DEFAULT_FALLBACK;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -55,7 +59,7 @@ export async function fetchComfortMessage(input) {
           ? 'network'
           : 'error';
     console.warn(`fetchComfortMessage failed (${reason}) — using fallback`, err);
-    return { message: LOCAL_FALLBACK, source: 'fallback', error: reason };
+    return { message: fallback, source: 'fallback', error: reason };
   } finally {
     clearTimeout(timer);
   }
