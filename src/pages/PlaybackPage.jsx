@@ -3,16 +3,11 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import SoundControls, { getInitialTrackId } from '../components/SoundControls';
 import { useTransport } from '../context/TransportContext';
 import {
+  DEFAULT_CARE_PLAN,
   DURATIONS,
-  SITUATIONS,
   VOLUME_MAX,
   resolveTrackSrc,
 } from '../data/options';
-import {
-  createIdleProjectorState,
-  openProjectorWindow,
-  publishProjectorState,
-} from '../services/projectorSync';
 import { stopSpeaking } from '../services/tts';
 
 function formatTime(totalSeconds) {
@@ -32,36 +27,28 @@ function clampVolume(v) {
 }
 
 /**
- * 직원 조작 화면 (리모컨)
- * 빔 콘텐츠는 /projector 창에 표시 — 여기서는 모드·사운드·이송 상태만 제어
+ * 이동 중 화면 — 타이머 + 사운드 제어
  */
 export default function PlaybackPage() {
   const navigate = useNavigate();
   const {
     input,
-    selectedPlan,
+    sessionActive,
     resetSession,
     defaultVolume,
-    aiMessage,
     requestAiMessage,
     aiMessageLoading,
     setAiPanelOpen,
   } = useTransport();
 
-  const initialMode =
-    selectedPlan?.includeGuide === false && selectedPlan?.includeComfort
-      ? 'comfort'
-      : 'guide';
-  const [beamMode, setBeamMode] = useState(initialMode);
-  const [beamEnabled, setBeamEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [trackId, setTrackId] = useState(() =>
-    getInitialTrackId(selectedPlan?.trackId, input.religion),
+    getInitialTrackId(DEFAULT_CARE_PLAN.trackId),
   );
-  const [volume, setVolume] = useState(defaultVolume);
+  const [volume, setVolume] = useState(() => clampVolume(defaultVolume));
   const [startHint, setStartHint] = useState('');
   const [started, setStarted] = useState(false);
-  const [phase, setPhase] = useState('idle'); // idle | speaking | music
+  const [phase, setPhase] = useState('idle');
 
   const audioRef = useRef(null);
   const volumeRef = useRef(volume);
@@ -75,9 +62,6 @@ export default function PlaybackPage() {
 
   const [remaining, setRemaining] = useState(totalSeconds);
 
-  const destinationLabel =
-    SITUATIONS.find((s) => s.id === input.situation)?.label ?? '목적지';
-
   useEffect(() => {
     volumeRef.current = volume;
   }, [volume]);
@@ -86,7 +70,6 @@ export default function PlaybackPage() {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
 
-  // [1] 슬라이더 → 배경음악 volume 실시간 반영
   useEffect(() => {
     const audio = audioRef.current;
     if (audio) {
@@ -122,7 +105,6 @@ export default function PlaybackPage() {
     };
   }, []);
 
-  // 사운드 끄기 → 즉시 정지 (빔과 독립)
   useEffect(() => {
     if (soundEnabled === false) {
       playSessionRef.current += 1;
@@ -141,37 +123,8 @@ export default function PlaybackPage() {
     }
   }, [soundEnabled]);
 
-  // 직원 조작 → 빔 창 동기화
-  useEffect(() => {
-    if (!selectedPlan) return undefined;
-
-    publishProjectorState({
-      active: true,
-      beamMode,
-      beamEnabled,
-      remainingSeconds: remaining,
-      totalSeconds,
-      destinationLabel,
-      statusText: getStatusText(remaining),
-      planName: selectedPlan.name,
-      religion: input.religion,
-      caption: aiMessage || '',
-    });
-
-    return undefined;
-  }, [
-    selectedPlan,
-    beamMode,
-    beamEnabled,
-    remaining,
-    totalSeconds,
-    destinationLabel,
-    input.religion,
-    aiMessage,
-  ]);
-
-  if (!selectedPlan) {
-    return <Navigate to="/" replace />;
+  if (!sessionActive) {
+    return <Navigate to="/input" replace />;
   }
 
   const stopMusic = () => {
@@ -198,11 +151,7 @@ export default function PlaybackPage() {
     const audio = audioRef.current;
     if (!audio) return false;
 
-    const resolved = resolveTrackSrc(trackId, input.religion);
-    if (resolved.needReligion) {
-      setStartHint('종교를 환자 입력에서 선택해 주세요');
-      return false;
-    }
+    const resolved = resolveTrackSrc(trackId);
     if (!resolved.src) {
       setStartHint('재생할 음원을 찾을 수 없습니다');
       return false;
@@ -243,7 +192,6 @@ export default function PlaybackPage() {
     setStarted(true);
     setStartHint('');
 
-    // 이전 TTS·음악 정지 후, 멘트 → 음악 순서로 시작
     const session = playSessionRef.current + 1;
     playSessionRef.current = session;
     stopSpeaking();
@@ -263,7 +211,6 @@ export default function PlaybackPage() {
 
   const handleEnd = () => {
     stopAllAudio();
-    publishProjectorState(createIdleProjectorState());
     resetSession();
     navigate('/input');
   };
@@ -273,70 +220,9 @@ export default function PlaybackPage() {
       <div className="playback-status" aria-live="polite">
         <p className="playback-status__label">{getStatusText(remaining)}</p>
         <p className="playback-status__time">{formatTime(remaining)}</p>
-        <p className="playback-status__plan">{selectedPlan.name}</p>
       </div>
 
-      <section className="remote-panel" aria-label="빔 콘텐츠 조작">
-        <div className="remote-panel__head">
-          <h2 className="remote-panel__title">빔 콘텐츠</h2>
-          <div className="remote-panel__head-actions">
-            <button
-              type="button"
-              className={`btn btn--sm ${beamEnabled ? 'btn--ghost' : 'btn--secondary'}`}
-              onClick={() => setBeamEnabled((v) => !v)}
-            >
-              {beamEnabled ? '빔 끄기' : '빔 켜기'}
-            </button>
-            <button
-              type="button"
-              className="btn btn--secondary btn--sm"
-              onClick={openProjectorWindow}
-            >
-              빔 화면 미리보기
-            </button>
-          </div>
-        </div>
-        <p className="remote-panel__hint">
-          천장 투사 화면은 별도 창(`/projector`)에서 표시됩니다. 탭에 따라 내용이 달라집니다.
-        </p>
-
-        <div className="beam-panel__tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={beamMode === 'guide'}
-            className={`tab ${beamMode === 'guide' ? 'is-active' : ''}`}
-            onClick={() => setBeamMode('guide')}
-            disabled={!beamEnabled}
-          >
-            길 안내
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={beamMode === 'comfort'}
-            className={`tab ${beamMode === 'comfort' ? 'is-active' : ''}`}
-            onClick={() => setBeamMode('comfort')}
-            disabled={!beamEnabled}
-          >
-            편안함 이미지
-          </button>
-        </div>
-
-        <div className="remote-panel__mode">
-          현재 빔 모드:{' '}
-          <strong>
-            {!beamEnabled
-              ? '꺼짐'
-              : beamMode === 'guide'
-                ? '길 안내'
-                : '편안함 이미지 (Met 명화)'}
-          </strong>
-        </div>
-      </section>
-
       <SoundControls
-        religion={input.religion}
         trackId={trackId}
         onTrackChange={setTrackId}
         soundEnabled={soundEnabled}
@@ -353,13 +239,6 @@ export default function PlaybackPage() {
       {startHint && <p className="playback-start-hint">{startHint}</p>}
 
       <div className="page__footer sticky-footer sticky-footer--playback">
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={openProjectorWindow}
-        >
-          빔 미리보기
-        </button>
         <button
           type="button"
           className="btn btn--primary btn--sm playback-start-btn"

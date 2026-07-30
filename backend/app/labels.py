@@ -22,8 +22,10 @@ RELIGION_LABELS = {
 
 DURATION_LABELS = {
     "2": "약 2분",
+    "3": "약 3분",
     "5": "약 5분",
-    "10": "10분 이상",
+    "7": "약 7분",
+    "10": "약 10분",
 }
 
 ANXIETY_LABELS = {

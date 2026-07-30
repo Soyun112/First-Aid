@@ -295,6 +295,23 @@ a {
   font-size: 1.55rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.page__demo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  vertical-align: middle;
 }
 
 .page__desc {
@@ -826,6 +843,45 @@ a {
 
 .settings-list li {
   margin-bottom: 6px;
+}
+
+.settings-info {
+  margin: 0;
+}
+
+.settings-info__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-info__row:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.settings-info__row dt {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.settings-info__row dd {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+.settings-info__note {
+  margin: 12px 0 0 !important;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 /* ?붴?Staff remote (playback control) ?붴?*/

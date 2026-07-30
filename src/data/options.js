@@ -1,54 +1,45 @@
-/** 직원 입력 화면용 선택 옵션 */
-
-export const SITUATIONS = [
-  { id: 'preop', label: '수술 전 이동' },
-  { id: 'ward', label: '단순 병동 이동' },
-];
+/** 직원 입력 화면용 선택 옵션 (데모용: 연령대 · 이동 시간만) */
 
 export const AGE_GROUPS = [
   { id: 'child', label: '소아' },
   { id: 'adult', label: '성인' },
-  { id: 'elder', label: '고령' },
 ];
-
-export const RELIGIONS = [
-  { id: 'none', label: '없음' },
-  { id: 'christian', label: '기독교' },
-  { id: 'catholic', label: '천주교' },
-  { id: 'buddhist', label: '불교' },
-];
-
-/** 종교 → 배경음악 파일 */
-export const RELIGION_AUDIO = {
-  christian: '/audio/church.mp3',
-  catholic: '/audio/catholic.mp3',
-  buddhist: '/audio/buddhist.mp3',
-};
 
 export const DURATIONS = [
-  { id: '2', label: '2분', minutes: 2 },
+  { id: '3', label: '3분', minutes: 3 },
   { id: '5', label: '5분', minutes: 5 },
-  { id: '10', label: '10분 이상', minutes: 10 },
-];
-
-export const ANXIETY_LEVELS = [
-  { id: 'low', label: '낮음' },
-  { id: 'high', label: '높음' },
+  { id: '7', label: '7분', minutes: 7 },
+  { id: '10', label: '10분', minutes: 10 },
 ];
 
 export const DEFAULT_INPUT = {
-  situation: 'preop',
   ageGroup: 'adult',
-  religion: 'none',
   duration: '5',
+};
+
+/**
+ * 백엔드/멘트 API용 기본값
+ * (입력 화면에서 제거된 필드 — 데모에서 고정)
+ */
+export const MESSAGE_DEFAULTS = {
+  situation: 'preop',
+  religion: 'none',
   anxiety: 'low',
 };
 
-/** 이동 중 사운드 선택 (진정 / 종교) */
+/** 이동 중 사운드 선택 (기본: 음악1) */
 export const SOUND_OPTIONS = [
-  { id: 'calm', label: '진정음악', src: '/audio/calm.mp3' },
-  { id: 'religious', label: '종교음악', src: null },
+  { id: 'music1', label: '음악1', src: '/audio/calm.mp3' },
+  { id: 'music2', label: '음악2', src: '/audio/catholic.mp3' },
+  { id: 'music3', label: '음악3', src: '/audio/church.mp3' },
 ];
+
+/** 추천 화면 없이 바로 쓰는 기본 케어 조합 */
+export const DEFAULT_CARE_PLAN = {
+  id: 'default',
+  name: '표준 이송 케어',
+  trackId: 'music1',
+};
 
 export const BG_MUSIC_VOLUME = 0.25;
 export const TTS_VOLUME_BOOST = 0.3;
@@ -80,19 +71,10 @@ export const VOLUME_DEFAULT = 0.25;
 export const VOLUME_MAX = 0.6;
 
 /**
- * 트랙 ID + 종교 → mp3 경로
- * @returns {{ src: string | null, needReligion?: boolean }}
+ * 트랙 ID → mp3 경로
+ * @returns {{ src: string | null }}
  */
-export function resolveTrackSrc(trackId, religion) {
-  if (trackId === 'calm') {
-    return { src: '/audio/calm.mp3' };
-  }
-  if (trackId === 'religious') {
-    const src = RELIGION_AUDIO[religion] ?? null;
-    if (!src) {
-      return { src: null, needReligion: true };
-    }
-    return { src };
-  }
-  return { src: null };
+export function resolveTrackSrc(trackId) {
+  const opt = SOUND_OPTIONS.find((t) => t.id === trackId);
+  return { src: opt?.src ?? null };
 }

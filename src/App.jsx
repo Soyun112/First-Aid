@@ -6,8 +6,6 @@ import { TransportProvider } from './context/TransportContext';
 import EntryPage from './pages/EntryPage';
 import InputPage from './pages/InputPage';
 import PlaybackPage from './pages/PlaybackPage';
-import ProjectorPage from './pages/ProjectorPage';
-import RecommendPage from './pages/RecommendPage';
 import SettingsPage from './pages/SettingsPage';
 
 function StaffLayout({ children }) {
@@ -33,13 +31,7 @@ export default function App() {
       <TransportProvider>
         <BrowserRouter>
           <Routes>
-            {/* 입장 (코드 입력) */}
             <Route path="/" element={<EntryPage />} />
-
-            {/* B. 빔 출력 — 별도 창, 인증 없음 */}
-            <Route path="/projector" element={<ProjectorPage />} />
-
-            {/* A. 직원 조작 — 인증 필요 */}
             <Route
               path="/input"
               element={
@@ -48,14 +40,8 @@ export default function App() {
                 </ProtectedStaff>
               }
             />
-            <Route
-              path="/recommend"
-              element={
-                <ProtectedStaff>
-                  <RecommendPage />
-                </ProtectedStaff>
-              }
-            />
+            <Route path="/recommend" element={<Navigate to="/input" replace />} />
+            <Route path="/projector" element={<Navigate to="/" replace />} />
             <Route
               path="/playback"
               element={

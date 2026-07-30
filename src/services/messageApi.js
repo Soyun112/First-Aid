@@ -6,6 +6,8 @@
  * → 프론트는 VITE_API_URL 로 백엔드 주소만 지정
  */
 
+import { MESSAGE_DEFAULTS } from '../data/options';
+
 export const API_BASE =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:8000';
 
@@ -16,7 +18,7 @@ const DEFAULT_FALLBACK =
   '지금은 안전하게 이동하고 있어요. 조금만 기다리면 곧 도착하니, 옆에 의료진과 함께 마음 편히 계셔도 괜찮아요.';
 
 /**
- * @param {object} input — TransportContext / projector input
+ * @param {object} input — TransportContext input
  * @param {{ fallback?: string }} [options]
  * @returns {Promise<{ message: string, source: 'api' | 'fallback', error?: string }>}
  */
@@ -33,11 +35,11 @@ export async function fetchComfortMessage(input, options = {}) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        situation: input.situation,
+        situation: input.situation ?? MESSAGE_DEFAULTS.situation,
         age: input.ageGroup,
-        religion: input.religion,
+        religion: input.religion ?? MESSAGE_DEFAULTS.religion,
         duration: input.duration,
-        anxiety: input.anxiety,
+        anxiety: input.anxiety ?? MESSAGE_DEFAULTS.anxiety,
       }),
       signal: controller.signal,
     });

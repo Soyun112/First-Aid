@@ -57,24 +57,12 @@ export default function AiMessagePanel({ open, onClose, message, input, source, 
         {summary && (
           <dl className="ai-panel__meta">
             <div>
-              <dt>상황</dt>
-              <dd>{summary.situation}</dd>
-            </div>
-            <div>
               <dt>연령</dt>
               <dd>{summary.age}</dd>
             </div>
             <div>
-              <dt>종교</dt>
-              <dd>{summary.religion}</dd>
-            </div>
-            <div>
               <dt>이동 시간</dt>
               <dd>{summary.duration}</dd>
-            </div>
-            <div>
-              <dt>불안도</dt>
-              <dd>{summary.anxiety}</dd>
             </div>
           </dl>
         )}

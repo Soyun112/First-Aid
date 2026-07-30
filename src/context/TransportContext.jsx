@@ -1,19 +1,14 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { DEFAULT_INPUT, VOLUME_DEFAULT } from '../data/options';
 import { fetchComfortMessage } from '../services/messageApi';
-import { recommend } from '../services/recommend';
 import { speak, stopSpeaking } from '../services/tts';
-import {
-  createIdleProjectorState,
-  publishProjectorState,
-} from '../services/projectorSync';
 
 const TransportContext = createContext(null);
 
 export function TransportProvider({ children }) {
   const [input, setInput] = useState({ ...DEFAULT_INPUT });
-  const [recommendations, setRecommendations] = useState([]);
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  /** 입력 완료 후 이동 중 화면 진입 여부 */
+  const [sessionActive, setSessionActive] = useState(false);
   const [defaultVolume, setDefaultVolume] = useState(VOLUME_DEFAULT);
   const [aiMessage, setAiMessage] = useState('');
   const [aiMessageSource, setAiMessageSource] = useState(null);
@@ -25,25 +20,17 @@ export function TransportProvider({ children }) {
     setInput((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const runRecommend = useCallback(() => {
-    const results = recommend(input);
-    setRecommendations(results);
-    return results;
-  }, [input]);
-
-  const selectPlan = useCallback((plan) => {
-    setSelectedPlan(plan);
+  const startTransport = useCallback(() => {
+    setSessionActive(true);
   }, []);
 
   const resetSession = useCallback(() => {
-    setSelectedPlan(null);
-    setRecommendations([]);
+    setSessionActive(false);
     setAiMessage('');
     setAiMessageSource(null);
     setAiMessageLoading(false);
     setAiPanelOpen(false);
     stopSpeaking();
-    publishProjectorState(createIdleProjectorState());
   }, []);
 
   /**
@@ -90,10 +77,8 @@ export function TransportProvider({ children }) {
       input,
       updateInput,
       setInput,
-      recommendations,
-      runRecommend,
-      selectedPlan,
-      selectPlan,
+      sessionActive,
+      startTransport,
       resetSession,
       defaultVolume,
       setDefaultVolume,
@@ -107,10 +92,8 @@ export function TransportProvider({ children }) {
     [
       input,
       updateInput,
-      recommendations,
-      runRecommend,
-      selectedPlan,
-      selectPlan,
+      sessionActive,
+      startTransport,
       resetSession,
       defaultVolume,
       aiMessage,

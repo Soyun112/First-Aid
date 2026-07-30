@@ -1,8 +1,6 @@
 from app.labels import (
     AGE_LABELS,
-    ANXIETY_LABELS,
     DURATION_LABELS,
-    RELIGION_LABELS,
     SITUATION_LABELS,
     label,
 )
@@ -12,9 +10,7 @@ from app.schemas import GenerateMessageRequest
 def build_prompt(req: GenerateMessageRequest) -> str:
     situation = label(SITUATION_LABELS, req.situation, req.situation)
     age = label(AGE_LABELS, req.age, req.age)
-    religion = label(RELIGION_LABELS, req.religion, req.religion)
     duration = label(DURATION_LABELS, req.duration, req.duration)
-    anxiety = label(ANXIETY_LABELS, req.anxiety, req.anxiety)
 
     return f"""당신은 병원에서 이동식 침대로 이송되는 환자를 안심시키는 따뜻한 안내 멘트를 작성합니다.
 
@@ -22,11 +18,9 @@ def build_prompt(req: GenerateMessageRequest) -> str:
 지금보다 한 문장 더 길게, **총 2~3문장**으로 작성하고 **3문장을 넘기지 마세요**.
 
 [환자 정보]
-- 상황/이동: {situation}
 - 연령대: {age}
-- 종교: {religion}
 - 이동 예상 시간: {duration}
-- 불안도: {anxiety}
+- 이동 맥락: {situation} (데모 기본값)
 
 [문장 구성]
 1. 첫 문장: 지금 어디로 이동 중인지 안내
@@ -40,9 +34,7 @@ def build_prompt(req: GenerateMessageRequest) -> str:
 - 의학적 진단·처방·검사 결과를 단정하지 마세요 (정서적 안내만)
 - 무섭거나 불안을 키우는 표현 금지
 - 소아: 쉽고 친근한 말투
-- 고령: 천천히, 또박또박, 차분하게
-- 불안도 높음: 더욱 차분하고 안정감 있게
-- 종교 선택 시 해당 정서에 맞게 부드럽게 (없으면 중립)
+- 성인: 차분하고 존중하는 구어체
 - **멘트 본문만** 출력 (제목, 설명, 따옴표, 번호 없이)"""
 
 

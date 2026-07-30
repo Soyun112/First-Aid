@@ -6,7 +6,6 @@ import { SOUND_OPTIONS, VOLUME_MAX } from '../data/options';
  * 실제 재생은 이동 화면의 「시작」 버튼에서 수행
  */
 export default function SoundControls({
-  religion,
   trackId,
   onTrackChange,
   soundEnabled,
@@ -14,14 +13,7 @@ export default function SoundControls({
   volume,
   onVolumeChange,
 }) {
-  const hasReligion = religion && religion !== 'none';
-  const tracks = useMemo(
-    () =>
-      SOUND_OPTIONS.filter(
-        (t) => t.id === 'calm' || (t.id === 'religious' && hasReligion),
-      ),
-    [hasReligion],
-  );
+  const tracks = useMemo(() => SOUND_OPTIONS, []);
 
   return (
     <section className="sound-controls" aria-label="사운드 컨트롤">
@@ -73,10 +65,8 @@ export default function SoundControls({
   );
 }
 
-/** 초기 트랙 ID 계산용 헬퍼 */
-export function getInitialTrackId(initialTrackId, religion) {
-  const hasReligion = religion && religion !== 'none';
-  if (initialTrackId === 'religious' && hasReligion) return 'religious';
-  if (initialTrackId === 'calm') return 'calm';
-  return 'calm';
+/** 초기 트랙 ID — 기본 음악1 */
+export function getInitialTrackId(initialTrackId) {
+  if (SOUND_OPTIONS.some((t) => t.id === initialTrackId)) return initialTrackId;
+  return 'music1';
 }
