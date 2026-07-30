@@ -6,12 +6,15 @@ const FADE_MS = 1600;
 const LOADING_BG = '#1a2830';
 
 /**
- * 빔 출력 — 편안함 이미지 모드
- * The Met 공개 도메인 작품을 캐시 후 크로스페이드 순환
+ * The Met 명화 크로스페이드
+ * variant:
+ *  - "fullscreen" — 단독 편안함 모드 (기존)
+ *  - "background" — /projector 데모 배경 (커버 + 어두운 오버레이 + 구석 출처)
  */
-export default function ProjectorComfortView() {
+export default function ProjectorComfortView({ variant = 'fullscreen' }) {
+  const isBackground = variant === 'background';
   const [artworks, setArtworks] = useState([]);
-  const [status, setStatus] = useState('loading'); // loading | ready | error
+  const [status, setStatus] = useState('loading');
   const indexRef = useRef(0);
   const [indices, setIndices] = useState([0, 1]);
   const [showFirst, setShowFirst] = useState(true);
@@ -40,7 +43,6 @@ export default function ProjectorComfortView() {
     };
   }, []);
 
-  // 다음 이미지 프리로드
   useEffect(() => {
     if (status !== 'ready' || artworks.length < 2) return undefined;
     const next = artworks[(indexRef.current + 1) % artworks.length];
@@ -57,7 +59,6 @@ export default function ProjectorComfortView() {
       const next = (indexRef.current + 1) % artworks.length;
       indexRef.current = next;
 
-      // 다음 다음 이미지 프리로드
       const preload = artworks[(next + 1) % artworks.length];
       if (preload?.imageUrl) {
         const img = new Image();
@@ -76,18 +77,30 @@ export default function ProjectorComfortView() {
     return () => clearInterval(id);
   }, [status, artworks]);
 
+  const rootClass = [
+    'proj-comfort',
+    isBackground ? 'proj-comfort--background' : '',
+    status === 'loading' || status === 'error' ? 'proj-comfort--loading' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   if (status === 'loading') {
     return (
-      <div className="proj-comfort proj-comfort--loading" style={{ background: LOADING_BG }}>
-        <p className="proj-comfort__loading-text">작품을 불러오는 중…</p>
+      <div className={rootClass} style={{ background: LOADING_BG }} aria-hidden={isBackground}>
+        {!isBackground && (
+          <p className="proj-comfort__loading-text">작품을 불러오는 중…</p>
+        )}
       </div>
     );
   }
 
   if (status === 'error' || !artworks.length) {
     return (
-      <div className="proj-comfort proj-comfort--loading" style={{ background: LOADING_BG }}>
-        <p className="proj-comfort__loading-text">잠시만 기다려 주세요</p>
+      <div className={rootClass} style={{ background: LOADING_BG }} aria-hidden={isBackground}>
+        {!isBackground && (
+          <p className="proj-comfort__loading-text">잠시만 기다려 주세요</p>
+        )}
       </div>
     );
   }
@@ -97,7 +110,7 @@ export default function ProjectorComfortView() {
   const current = showFirst ? art0 : art1;
 
   return (
-    <div className="proj-comfort" aria-live="polite">
+    <div className={rootClass} aria-hidden={isBackground}>
       <div
         className={`proj-comfort__layer ${showFirst ? 'is-visible' : ''}`}
         style={{ transitionDuration: `${FADE_MS}ms` }}
@@ -105,7 +118,7 @@ export default function ProjectorComfortView() {
         <img
           className="proj-comfort__image"
           src={art0.imageUrl}
-          alt={art0.title}
+          alt={isBackground ? '' : art0.title}
           draggable={false}
         />
       </div>
@@ -116,16 +129,27 @@ export default function ProjectorComfortView() {
         <img
           className="proj-comfort__image"
           src={art1.imageUrl}
-          alt={art1.title}
+          alt={isBackground ? '' : art1.title}
           draggable={false}
         />
       </div>
 
-      <footer className="proj-comfort__caption">
-        <p className="proj-comfort__title">{current.title}</p>
-        <p className="proj-comfort__artist">{current.artist}</p>
-        <p className="proj-comfort__credit">The Metropolitan Museum of Art</p>
-      </footer>
+      {isBackground ? (
+        <>
+          <div className="proj-comfort__dim" />
+          <p className="proj-comfort__credit-corner">
+            {current.title}
+            {current.artist ? ` · ${current.artist}` : ''}
+            <span> · The Metropolitan Museum of Art</span>
+          </p>
+        </>
+      ) : (
+        <footer className="proj-comfort__caption">
+          <p className="proj-comfort__title">{current.title}</p>
+          <p className="proj-comfort__artist">{current.artist}</p>
+          <p className="proj-comfort__credit">The Metropolitan Museum of Art</p>
+        </footer>
+      )}
     </div>
   );
 }
