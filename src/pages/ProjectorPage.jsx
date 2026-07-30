@@ -1,25 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import ProjectorComfortView from '../components/projector/ProjectorComfortView';
 import {
-  BG_MUSIC_DUCK_VOLUME,
   BG_MUSIC_VOLUME,
   PROJECTOR_FALLBACKS,
-  PROJECTOR_MUSIC,
+  PROJECTOR_RELIGIONS,
+  PROJECTOR_SOUNDS,
   PROJECTOR_SITUATIONS,
   TTS_RATE,
   TTS_VOLUME,
   buildProjectorInput,
+  resolveSoundSrc,
 } from '../data/projectorDemo';
 import { fetchComfortMessage } from '../services/messageApi';
 import { speak, stopSpeaking } from '../services/tts';
 
 /**
- * 빔 프로젝터 데모 화면
- * Met 명화 배경 + 상황 선택 → Gemini 멘트 → TTS + 배경음악
+ * 빔 프로젝터 데모
+ * Met 배경 + 상황 → Gemini 멘트/TTS + 배경음악(동시·루프)
  */
 export default function ProjectorPage() {
   const [situation, setSituation] = useState(null);
-  const [musicId, setMusicId] = useState('off');
+  const [religionId, setReligionId] = useState(null);
+  const [soundId, setSoundId] = useState('off');
   const [message, setMessage] = useState('');
   const [source, setSource] = useState(null);
   const [phase, setPhase] = useState('idle');
@@ -27,11 +29,16 @@ export default function ProjectorPage() {
 
   const audioRef = useRef(null);
   const busyRef = useRef(false);
-  const musicIdRef = useRef('off');
+  const religionRef = useRef(null);
+  const soundRef = useRef('off');
 
   useEffect(() => {
-    musicIdRef.current = musicId;
-  }, [musicId]);
+    religionRef.current = religionId;
+  }, [religionId]);
+
+  useEffect(() => {
+    soundRef.current = soundId;
+  }, [soundId]);
 
   useEffect(() => {
     return () => {
@@ -49,16 +56,6 @@ export default function ProjectorPage() {
     };
   }, []);
 
-  const setBgVolume = (volume) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    try {
-      audio.volume = Math.min(1, Math.max(0, volume));
-    } catch {
-      /* ignore */
-    }
-  };
-
   const stopBgMusic = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -70,40 +67,73 @@ export default function ProjectorPage() {
     }
   };
 
-  const selectMusic = async (nextId) => {
-    setMusicId(nextId);
+  /**
+   * 클릭 시에만 재생. loop=true, 이전 트랙 정지 후 교체.
+   */
+  const playSoundOption = async (nextSoundId, nextReligionId = religionRef.current) => {
+    setSoundId(nextSoundId);
     setMusicHint('');
 
-    const track = PROJECTOR_MUSIC.find((m) => m.id === nextId);
     const audio = audioRef.current;
-    if (!audio || !track) return;
+    if (!audio) return;
 
+    // 겹침 방지: 항상 이전 재생 중지
     stopBgMusic();
 
-    if (nextId === 'off' || !track.src) {
+    if (nextSoundId === 'off') {
+      return;
+    }
+
+    const resolved = resolveSoundSrc(nextSoundId, nextReligionId);
+
+    if (resolved.needReligion) {
+      setMusicHint(resolved.missingHint || '종교를 먼저 선택해 주세요');
+      return;
+    }
+
+    if (!resolved.src) {
+      if (resolved.missingHint) setMusicHint(resolved.missingHint);
       return;
     }
 
     try {
       audio.loop = true;
-      audio.src = track.src;
+      audio.src = resolved.src;
       audio.volume = BG_MUSIC_VOLUME;
+      // 로드 후 재생 (짧은 파일도 loop로 유지)
+      audio.load();
       await audio.play();
+      setMusicHint('');
     } catch (err) {
-      console.warn('배경음악 재생 실패:', track.src, err);
-      setMusicHint(`재생할 수 없습니다 (${track.label})`);
+      // 파일 없음·재생 실패 → 앱은 계속, 힌트만
+      console.warn('배경음악 재생 실패:', resolved.src, err);
+      setMusicHint(
+        resolved.missingHint ||
+          `재생할 수 없습니다 (${resolved.src}). 파일을 public/audio에 넣어 주세요.`,
+      );
     }
   };
 
-  const duckDuringSpeech = (text) => {
-    setBgVolume(BG_MUSIC_DUCK_VOLUME);
+  const selectReligion = async (nextReligionId) => {
+    setReligionId(nextReligionId);
+    // 이미 종교음악이 선택된 상태면 바로 해당 곡으로 전환 재생
+    if (soundRef.current === 'religious') {
+      await playSoundOption('religious', nextReligionId);
+    }
+  };
+
+  /** TTS는 배경음악을 멈추지 않고 동시에 재생 */
+  const speakWithMusic = (text) => {
+    const audio = audioRef.current;
+    if (audio && !audio.paused) {
+      audio.volume = BG_MUSIC_VOLUME;
+      audio.loop = true;
+    }
+
     speak(text, {
       rate: TTS_RATE,
       volume: TTS_VOLUME,
       onEnd: () => {
-        if (musicIdRef.current !== 'off') {
-          setBgVolume(BG_MUSIC_VOLUME);
-        }
         setPhase((p) => (p === 'loading' ? p : 'idle'));
       },
     });
@@ -117,18 +147,22 @@ export default function ProjectorPage() {
     setPhase('loading');
     setMessage('');
     setSource(null);
+    // 멘트만 갱신 — 배경음악은 그대로 유지(동시 재생)
     stopSpeaking();
 
     const fallback =
       PROJECTOR_FALLBACKS[situationId] || PROJECTOR_FALLBACKS.ward;
-    const input = buildProjectorInput(situationId, musicIdRef.current);
+    const input = buildProjectorInput(
+      situationId,
+      religionRef.current || 'none',
+    );
 
     try {
       const result = await fetchComfortMessage(input, { fallback });
       setMessage(result.message);
       setSource(result.source);
       setPhase('playing');
-      duckDuringSpeech(result.message);
+      speakWithMusic(result.message);
     } finally {
       busyRef.current = false;
     }
@@ -138,12 +172,11 @@ export default function ProjectorPage() {
     if (!message || busyRef.current) return;
     setPhase('playing');
     stopSpeaking();
-    duckDuringSpeech(message);
+    speakWithMusic(message);
   };
 
-  const handleStop = () => {
+  const handleStopSpeech = () => {
     stopSpeaking();
-    setBgVolume(BG_MUSIC_VOLUME);
     setPhase('idle');
   };
 
@@ -203,16 +236,32 @@ export default function ProjectorPage() {
           </div>
 
           <div className="proj-demo__group">
-            <p className="proj-demo__label">배경 노래</p>
+            <p className="proj-demo__label">종교 (종교음악용)</p>
             <div className="proj-demo__buttons">
-              {PROJECTOR_MUSIC.map((m) => (
+              {PROJECTOR_RELIGIONS.map((r) => (
                 <button
-                  key={m.id}
+                  key={r.id}
                   type="button"
-                  className={`proj-demo__btn proj-demo__btn--soft ${musicId === m.id ? 'is-active' : ''}`}
-                  onClick={() => selectMusic(m.id)}
+                  className={`proj-demo__btn proj-demo__btn--soft ${religionId === r.id ? 'is-active' : ''}`}
+                  onClick={() => selectReligion(r.id)}
                 >
-                  {m.label}
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="proj-demo__group">
+            <p className="proj-demo__label">배경 사운드</p>
+            <div className="proj-demo__buttons">
+              {PROJECTOR_SOUNDS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`proj-demo__btn proj-demo__btn--soft ${soundId === s.id ? 'is-active' : ''}`}
+                  onClick={() => playSoundOption(s.id)}
+                >
+                  {s.label}
                 </button>
               ))}
             </div>
@@ -230,7 +279,7 @@ export default function ProjectorPage() {
             <button
               type="button"
               className="proj-demo__btn proj-demo__btn--soft"
-              onClick={handleStop}
+              onClick={handleStopSpeech}
             >
               멘트 정지
             </button>
@@ -240,7 +289,7 @@ export default function ProjectorPage() {
         </footer>
       </div>
 
-      <audio ref={audioRef} preload="none" />
+      <audio ref={audioRef} preload="none" loop />
     </div>
   );
 }
