@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  BG_MUSIC_DUCK_VOLUME,
   BG_MUSIC_VOLUME,
   PROJECTOR_FALLBACKS,
   PROJECTOR_MUSIC,
@@ -13,11 +14,12 @@ import { speak, stopSpeaking } from '../services/tts';
 
 /**
  * 빔 프로젝터 데모 화면
- * 상황 선택 → Gemini 멘트 → TTS + 배경음악 + 큰 자막
+ * 상황 선택 → Gemini 멘트 → TTS
+ * 배경음악은 사용자 클릭으로만 재생 (자동재생 금지)
  */
 export default function ProjectorPage() {
   const [situation, setSituation] = useState(null);
-  const [musicId, setMusicId] = useState('calm');
+  const [musicId, setMusicId] = useState('off');
   const [message, setMessage] = useState('');
   const [source, setSource] = useState(null);
   const [phase, setPhase] = useState('idle'); // idle | loading | playing
@@ -25,47 +27,92 @@ export default function ProjectorPage() {
 
   const audioRef = useRef(null);
   const busyRef = useRef(false);
+  const musicIdRef = useRef('off');
 
-  const musicTrack =
-    PROJECTOR_MUSIC.find((m) => m.id === musicId) || PROJECTOR_MUSIC[0];
+  useEffect(() => {
+    musicIdRef.current = musicId;
+  }, [musicId]);
 
   useEffect(() => {
     return () => {
       stopSpeaking();
       const audio = audioRef.current;
       if (audio) {
-        audio.pause();
-        audio.src = '';
+        try {
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+        } catch {
+          /* ignore */
+        }
       }
     };
   }, []);
 
+  const setBgVolume = (volume) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    try {
+      audio.volume = Math.min(1, Math.max(0, volume));
+    } catch {
+      /* ignore */
+    }
+  };
+
   const stopBgMusic = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.pause();
-    audio.currentTime = 0;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch {
+      /* ignore */
+    }
   };
 
-  const playBgMusic = async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
+  /**
+   * 사용자 클릭으로만 호출 — 이전 트랙 정지 후 새 트랙 재생
+   * @param {string} nextId
+   */
+  const selectMusic = async (nextId) => {
+    setMusicId(nextId);
+    setMusicHint('');
 
+    const track = PROJECTOR_MUSIC.find((m) => m.id === nextId);
+    const audio = audioRef.current;
+    if (!audio || !track) return;
+
+    // 항상 이전 재생 중지 (겹침 방지)
     stopBgMusic();
-    audio.src = musicTrack.src;
-    audio.loop = true;
-    audio.volume = BG_MUSIC_VOLUME;
+
+    if (nextId === 'off' || !track.src) {
+      return;
+    }
 
     try {
+      audio.loop = true;
+      audio.src = track.src;
+      audio.volume = BG_MUSIC_VOLUME;
       await audio.play();
-      setMusicHint('');
     } catch (err) {
-      // 파일 미배치 또는 autoplay 제한
-      console.warn('배경음악 재생 실패 (파일 확인: ', musicTrack.src, ')', err);
-      setMusicHint(
-        `배경음악 파일이 없거나 재생할 수 없습니다 (${musicTrack.src})`,
-      );
+      console.warn('배경음악 재생 실패:', track.src, err);
+      setMusicHint(`재생할 수 없습니다 (${track.label})`);
     }
+  };
+
+  const duckDuringSpeech = (text) => {
+    setBgVolume(BG_MUSIC_DUCK_VOLUME);
+    speak(text, {
+      rate: TTS_RATE,
+      volume: TTS_VOLUME,
+      onEnd: () => {
+        // 멘트가 끝난 뒤에도 음악이 켜져 있으면 볼륨 복구
+        if (musicIdRef.current !== 'off') {
+          setBgVolume(BG_MUSIC_VOLUME);
+        }
+        setPhase((p) => (p === 'loading' ? p : 'idle'));
+      },
+    });
   };
 
   const runDemo = async (situationId) => {
@@ -77,39 +124,34 @@ export default function ProjectorPage() {
     setMessage('');
     setSource(null);
     stopSpeaking();
-    stopBgMusic();
+    // 배경음악은 사용자가 고른 트랙을 유지 (상황 클릭으로 새로 켜지 않음)
 
     const fallback =
       PROJECTOR_FALLBACKS[situationId] || PROJECTOR_FALLBACKS.ward;
-    const input = buildProjectorInput(situationId, musicId);
+    const input = buildProjectorInput(situationId, musicIdRef.current);
 
     try {
       const result = await fetchComfortMessage(input, { fallback });
       setMessage(result.message);
       setSource(result.source);
       setPhase('playing');
-
-      await playBgMusic();
-      speak(result.message, {
-        rate: TTS_RATE,
-        volume: TTS_VOLUME,
-      });
+      duckDuringSpeech(result.message);
     } finally {
       busyRef.current = false;
     }
   };
 
-  const handleReplay = async () => {
+  const handleReplay = () => {
     if (!message || busyRef.current) return;
     setPhase('playing');
-    await playBgMusic();
-    speak(message, { rate: TTS_RATE, volume: TTS_VOLUME });
+    stopSpeaking();
+    duckDuringSpeech(message);
   };
 
   const handleStop = () => {
     stopSpeaking();
-    stopBgMusic();
-    setPhase(message ? 'idle' : 'idle');
+    setBgVolume(BG_MUSIC_VOLUME);
+    setPhase('idle');
   };
 
   return (
@@ -170,8 +212,7 @@ export default function ProjectorPage() {
                 key={m.id}
                 type="button"
                 className={`proj-demo__btn proj-demo__btn--soft ${musicId === m.id ? 'is-active' : ''}`}
-                onClick={() => setMusicId(m.id)}
-                disabled={phase === 'loading'}
+                onClick={() => selectMusic(m.id)}
               >
                 {m.label}
               </button>
@@ -193,13 +234,14 @@ export default function ProjectorPage() {
             className="proj-demo__btn proj-demo__btn--soft"
             onClick={handleStop}
           >
-            정지
+            멘트 정지
           </button>
         </div>
 
         {musicHint && <p className="proj-demo__hint">{musicHint}</p>}
       </footer>
 
+      {/* preload=none: 페이지 로드 시 자동 다운로드/재생 안 함 */}
       <audio ref={audioRef} preload="none" />
     </div>
   );

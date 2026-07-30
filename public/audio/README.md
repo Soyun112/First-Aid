@@ -1,8 +1,10 @@
-# Placeholder for background music assets.
-# Add files here (binary mp3 not committed as empty stubs):
-#   calm.mp3       — 진정음악
-#   religious.mp3  — 종교음악
-#
-# Paths used by the app:
-#   /audio/calm.mp3
-#   /audio/religious.mp3
+# Projector background music
+
+Vite serves files in `public/` at the site root.
+
+| File | Button label |
+|------|----------------|
+| `/audio/calm.mp3` | 진정음악 |
+| `/audio/church.mp3` | 교회 |
+| `/audio/catholic.mp3` | 천주교 |
+| `/audio/buddhist.mp3` | 반야심경 |

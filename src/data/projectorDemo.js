@@ -7,23 +7,22 @@ export const PROJECTOR_SITUATIONS = [
   { id: 'ward', label: '단순 병동 이동' },
 ];
 
+/** 배경음악 트랙 (Vite: public → /audio/...) */
 export const PROJECTOR_MUSIC = [
-  {
-    id: 'calm',
-    label: '진정음악',
-    src: '/audio/calm.mp3',
-  },
-  {
-    id: 'religious',
-    label: '종교음악',
-    src: '/audio/religious.mp3',
-  },
+  { id: 'calm', label: '진정음악', src: '/audio/calm.mp3', religion: 'none' },
+  { id: 'church', label: '교회', src: '/audio/church.mp3', religion: 'christian' },
+  { id: 'catholic', label: '천주교', src: '/audio/catholic.mp3', religion: 'catholic' },
+  { id: 'buddhist', label: '반야심경', src: '/audio/buddhist.mp3', religion: 'buddhist' },
+  { id: 'off', label: '끄기', src: null, religion: 'none' },
 ];
 
-/** 배경음악 볼륨 (멘트보다 낮게) */
+/** 배경음악 기본 볼륨 */
 export const BG_MUSIC_VOLUME = 0.25;
 
-/** TTS 볼륨 (또렷하게) */
+/** TTS 재생 중 배경음악 duck 볼륨 */
+export const BG_MUSIC_DUCK_VOLUME = 0.1;
+
+/** TTS 볼륨 */
 export const TTS_VOLUME = 0.9;
 
 /** TTS 속도 */
@@ -39,10 +38,11 @@ export const PROJECTOR_FALLBACKS = {
 
 /** Gemini 요청용 기본 입력값 */
 export function buildProjectorInput(situationId, musicId = 'calm') {
+  const track = PROJECTOR_MUSIC.find((m) => m.id === musicId);
   return {
     situation: situationId,
     ageGroup: 'adult',
-    religion: musicId === 'religious' ? 'christian' : 'none',
+    religion: track?.religion || 'none',
     duration: '5',
     anxiety: 'low',
   };
