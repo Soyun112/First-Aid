@@ -24,7 +24,7 @@ export default function InputPage() {
       <p className="page__desc">담당자가 이동 전 환자 상황을 선택해 주세요.</p>
 
       <OptionGroup
-        label="상황 / 검사"
+        label="상황"
         options={SITUATIONS}
         value={input.situation}
         onChange={(v) => updateInput('situation', v)}

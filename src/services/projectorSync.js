@@ -14,11 +14,14 @@ export const PROJECTOR_CHANNEL = 'first-aid-projector';
  * @typedef {object} ProjectorState
  * @property {boolean} active
  * @property {BeamMode} beamMode
+ * @property {boolean} beamEnabled
  * @property {number} remainingSeconds
  * @property {number} totalSeconds
  * @property {string} destinationLabel
  * @property {string} statusText
  * @property {string} planName
+ * @property {string} religion
+ * @property {string} caption
  * @property {number} updatedAt
  */
 
@@ -27,11 +30,14 @@ export function createIdleProjectorState() {
   return {
     active: false,
     beamMode: 'guide',
+    beamEnabled: true,
     remainingSeconds: 0,
     totalSeconds: 0,
     destinationLabel: '',
     statusText: '대기 중',
     planName: '',
+    religion: 'none',
+    caption: '',
     updatedAt: Date.now(),
   };
 }

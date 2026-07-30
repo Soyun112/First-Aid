@@ -1,9 +1,7 @@
-/** 직원 입력 화면용 선택 옵션 (목업) */
+/** 직원 입력 화면용 선택 옵션 */
 
 export const SITUATIONS = [
-  { id: 'mri', label: 'MRI' },
-  { id: 'ct', label: 'CT' },
-  { id: 'preop', label: '수술 전' },
+  { id: 'preop', label: '수술 전 이동' },
   { id: 'ward', label: '단순 병동 이동' },
 ];
 
@@ -20,6 +18,13 @@ export const RELIGIONS = [
   { id: 'buddhist', label: '불교' },
 ];
 
+/** 종교 → 배경음악 파일 */
+export const RELIGION_AUDIO = {
+  christian: '/audio/church.mp3',
+  catholic: '/audio/catholic.mp3',
+  buddhist: '/audio/buddhist.mp3',
+};
+
 export const DURATIONS = [
   { id: '2', label: '2분', minutes: 2 },
   { id: '5', label: '5분', minutes: 5 },
@@ -32,20 +37,21 @@ export const ANXIETY_LEVELS = [
 ];
 
 export const DEFAULT_INPUT = {
-  situation: 'mri',
+  situation: 'preop',
   ageGroup: 'adult',
   religion: 'none',
   duration: '5',
   anxiety: 'low',
 };
 
-export const SOUND_TRACKS = [
-  { id: 'calm', label: '진정음악', type: 'music' },
-  { id: 'nature', label: '자연음', type: 'music' },
-  { id: 'christian', label: '찬송/기도', type: 'religion', religion: 'christian' },
-  { id: 'catholic', label: '성가', type: 'religion', religion: 'catholic' },
-  { id: 'buddhist', label: '명상음', type: 'religion', religion: 'buddhist' },
+/** 이동 중 사운드 선택 (진정 / 종교) */
+export const SOUND_OPTIONS = [
+  { id: 'calm', label: '진정음악', src: '/audio/calm.mp3' },
+  { id: 'religious', label: '종교음악', src: null },
 ];
+
+export const BG_MUSIC_VOLUME = 0.25;
+export const TTS_VOLUME_BOOST = 0.3;
 
 /** 천장 투사 시뮬레이션용 경로 좌표 (SVG viewBox 기준) */
 export const MOCK_ROUTE = {
@@ -72,3 +78,21 @@ export const COMFORT_SLIDES = [
 /** 음량: 0~1, 상한 0.6 (병원 환경용) */
 export const VOLUME_DEFAULT = 0.25;
 export const VOLUME_MAX = 0.6;
+
+/**
+ * 트랙 ID + 종교 → mp3 경로
+ * @returns {{ src: string | null, needReligion?: boolean }}
+ */
+export function resolveTrackSrc(trackId, religion) {
+  if (trackId === 'calm') {
+    return { src: '/audio/calm.mp3' };
+  }
+  if (trackId === 'religious') {
+    const src = RELIGION_AUDIO[religion] ?? null;
+    if (!src) {
+      return { src: null, needReligion: true };
+    }
+    return { src };
+  }
+  return { src: null };
+}
