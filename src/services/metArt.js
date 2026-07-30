@@ -9,7 +9,18 @@
 const BASE_URL = 'https://collectionapi.metmuseum.org/public/collection/v1';
 const CACHE_KEY = 'first-aid-met-comfort';
 const TARGET_COUNT = 16;
-const SEARCH_QUERIES = ['landscape', 'sea', 'garden', 'lake', 'forest', 'sunset'];
+const SEARCH_QUERIES = [
+  'landscape',
+  'water lilies',
+  'lake',
+  'calm sea',
+  'garden',
+  'meadow',
+  'river',
+  'impressionism',
+  'pastoral',
+  'spring',
+];
 
 /** @typedef {{ id: number, title: string, artist: string, imageUrl: string, objectURL: string }} MetArtwork */
 
