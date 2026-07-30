@@ -13,7 +13,7 @@ export const API_BASE =
 const REQUEST_TIMEOUT_MS = 90_000;
 
 const DEFAULT_FALLBACK =
-  '곧 도착해요. 무서워하지 않으셔도 괜찮아요. 천천히 이동하고 있습니다.';
+  '지금은 안전하게 이동하고 있어요. 조금만 기다리면 곧 도착하니, 옆에 의료진과 함께 마음 편히 계셔도 괜찮아요.';
 
 /**
  * @param {object} input — TransportContext / projector input

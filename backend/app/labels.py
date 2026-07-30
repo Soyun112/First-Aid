@@ -1,10 +1,10 @@
 """입력값 → 한국어 라벨 매핑"""
 
 SITUATION_LABELS = {
-    "mri": "MRI 검사",
-    "ct": "CT 검사",
-    "preop": "수술 전 이동",
-    "ward": "병동 이동",
+    "mri": "MRI 검사실",
+    "ct": "CT 검사실",
+    "preop": "수술 전 검사실",
+    "ward": "병동",
 }
 
 AGE_LABELS = {

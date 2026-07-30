@@ -5,8 +5,8 @@ import { useTransport } from '../context/TransportContext';
 
 /**
  * AI 추천 확인 화면
- * 추천 조합은 규칙 기반 목업(src/services/recommend.js).
- * Gemini는 이동 중 안심 멘트(messageApi)에만 사용.
+ * 추천 조합은 규칙 기반(src/services/recommend.js).
+ * 안심 멘트는 Gemini(messageApi)로 생성.
  */
 export default function RecommendPage() {
   const navigate = useNavigate();
@@ -36,7 +36,6 @@ export default function RecommendPage() {
       <p className="page__desc">
         입력하신 상황에 맞는 빔 콘텐츠 + 사운드 조합입니다. 카드를 고른 뒤 시작해 주세요.
       </p>
-      <p className="page__hint">※ 현재는 목업 추천입니다 · 추후 LLM API 연동</p>
 
       <div className="recommend-list">
         {list.map((plan) => (
