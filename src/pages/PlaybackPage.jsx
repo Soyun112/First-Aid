@@ -3,9 +3,9 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import SoundControls, { getInitialTrackId } from '../components/SoundControls';
 import { useTransport } from '../context/TransportContext';
 import {
-  BG_MUSIC_VOLUME,
   DURATIONS,
   SITUATIONS,
+  VOLUME_MAX,
   resolveTrackSrc,
 } from '../data/options';
 import {
@@ -25,6 +25,10 @@ function getStatusText(remaining) {
   if (remaining <= 30) return '곧 도착';
   if (remaining <= 60) return '거의 다 왔어요';
   return '이동 중';
+}
+
+function clampVolume(v) {
+  return Math.min(VOLUME_MAX, Math.max(0, v));
 }
 
 /**
@@ -57,8 +61,12 @@ export default function PlaybackPage() {
   const [volume, setVolume] = useState(defaultVolume);
   const [startHint, setStartHint] = useState('');
   const [started, setStarted] = useState(false);
+  const [phase, setPhase] = useState('idle'); // idle | speaking | music
 
   const audioRef = useRef(null);
+  const volumeRef = useRef(volume);
+  const soundEnabledRef = useRef(soundEnabled);
+  const playSessionRef = useRef(0);
 
   const totalSeconds = useMemo(() => {
     const d = DURATIONS.find((x) => x.id === input.duration);
@@ -69,6 +77,22 @@ export default function PlaybackPage() {
 
   const destinationLabel =
     SITUATIONS.find((s) => s.id === input.situation)?.label ?? '목적지';
+
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+
+  // [1] 슬라이더 → 배경음악 volume 실시간 반영
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.volume = clampVolume(volume);
+    }
+  }, [volume]);
 
   useEffect(() => {
     setRemaining(totalSeconds);
@@ -83,6 +107,7 @@ export default function PlaybackPage() {
 
   useEffect(() => {
     return () => {
+      playSessionRef.current += 1;
       stopSpeaking();
       const audio = audioRef.current;
       if (audio) {
@@ -100,6 +125,7 @@ export default function PlaybackPage() {
   // 사운드 끄기 → 즉시 정지 (빔과 독립)
   useEffect(() => {
     if (soundEnabled === false) {
+      playSessionRef.current += 1;
       stopSpeaking();
       const audio = audioRef.current;
       if (audio) {
@@ -111,6 +137,7 @@ export default function PlaybackPage() {
         }
       }
       setStarted(false);
+      setPhase('idle');
     }
   }, [soundEnabled]);
 
@@ -147,8 +174,7 @@ export default function PlaybackPage() {
     return <Navigate to="/" replace />;
   }
 
-  const stopAllAudio = () => {
-    stopSpeaking();
+  const stopMusic = () => {
     const audio = audioRef.current;
     if (!audio) return;
     try {
@@ -159,6 +185,13 @@ export default function PlaybackPage() {
     } catch {
       /* ignore */
     }
+  };
+
+  const stopAllAudio = () => {
+    playSessionRef.current += 1;
+    stopSpeaking();
+    stopMusic();
+    setPhase('idle');
   };
 
   const playSelectedMusic = async () => {
@@ -176,7 +209,6 @@ export default function PlaybackPage() {
     }
 
     try {
-      // 단일 <audio>만 사용 — src 교체 전 완전 정지
       try {
         audio.pause();
         audio.currentTime = 0;
@@ -185,14 +217,16 @@ export default function PlaybackPage() {
       }
       audio.loop = true;
       audio.src = resolved.src;
-      audio.volume = BG_MUSIC_VOLUME;
+      audio.volume = clampVolume(volumeRef.current);
       audio.load();
       await audio.play();
+      setPhase('music');
       setStartHint('');
       return true;
     } catch (err) {
       console.warn('배경음악 재생 실패:', resolved.src, err);
       setStartHint(`재생할 수 없습니다 (${resolved.src})`);
+      setPhase('idle');
       return false;
     }
   };
@@ -202,18 +236,28 @@ export default function PlaybackPage() {
 
     if (soundEnabled === false) {
       setSoundEnabled(true);
+      soundEnabledRef.current = true;
     }
 
     setAiPanelOpen(true);
     setStarted(true);
+    setStartHint('');
 
-    // TTS·이전 음악 모두 정지 후, 선택 트랙 1개만 재생
+    // 이전 TTS·음악 정지 후, 멘트 → 음악 순서로 시작
+    const session = playSessionRef.current + 1;
+    playSessionRef.current = session;
     stopSpeaking();
-    await playSelectedMusic();
+    stopMusic();
+    setPhase('speaking');
 
     await requestAiMessage({
       speak: true,
-      volume,
+      volume: clampVolume(volumeRef.current),
+      onSpeakEnd: () => {
+        if (playSessionRef.current !== session) return;
+        if (soundEnabledRef.current === false) return;
+        void playSelectedMusic();
+      },
     });
   };
 
@@ -301,6 +345,11 @@ export default function PlaybackPage() {
         onVolumeChange={setVolume}
       />
 
+      {phase === 'speaking' && (
+        <p className="playback-start-hint playback-start-hint--info">
+          AI 멘트 재생 중… 끝나면 배경음악이 이어집니다
+        </p>
+      )}
       {startHint && <p className="playback-start-hint">{startHint}</p>}
 
       <div className="page__footer sticky-footer sticky-footer--playback">

@@ -48,11 +48,15 @@ export function TransportProvider({ children }) {
 
   /**
    * Gemini 멘트 요청 (공통)
-   * @param {{ speak?: boolean, volume?: number }} options
+   * @param {{ speak?: boolean, volume?: number, onSpeakEnd?: () => void }} options
    */
   const requestAiMessage = useCallback(
     async (options = {}) => {
-      const { speak: shouldSpeak = false, volume = defaultVolume } = options;
+      const {
+        speak: shouldSpeak = false,
+        volume = defaultVolume,
+        onSpeakEnd,
+      } = options;
 
       if (fetchLock.current) return null;
       fetchLock.current = true;
@@ -64,7 +68,12 @@ export function TransportProvider({ children }) {
         setAiMessageSource(result.source);
 
         if (shouldSpeak) {
-          speak(result.message, { volume: Math.min(1, volume + 0.3) });
+          speak(result.message, {
+            volume: Math.min(1, Math.max(0, volume)),
+            onEnd: onSpeakEnd,
+          });
+        } else {
+          onSpeakEnd?.();
         }
 
         return result;

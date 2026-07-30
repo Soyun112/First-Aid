@@ -359,6 +359,10 @@ a {
   text-align: center;
 }
 
+.playback-start-hint--info {
+  color: var(--accent);
+}
+
 /* ?붴?Buttons ?붴?*/
 .btn {
   display: inline-flex;
