@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { VOLUME_DEFAULT, VOLUME_MAX } from '../data/options';
 import { useTransport } from '../context/TransportContext';
 import { fetchEtaHourly } from '../services/etaApi';
@@ -9,6 +10,7 @@ const HOURLY_ERROR = '예측 데이터를 불러올 수 없습니다';
  * 설정 · 정보
  */
 export default function SettingsPage() {
+  const location = useLocation();
   const {
     defaultVolume,
     setDefaultVolume,
@@ -18,8 +20,11 @@ export default function SettingsPage() {
   } = useTransport();
 
   const [hourlyItems, setHourlyItems] = useState(null);
+  const [currentHour, setCurrentHour] = useState(null);
+  const [currentEtaMin, setCurrentEtaMin] = useState(null);
   const [hourlyStatus, setHourlyStatus] = useState('idle'); // idle | loading | ready | error | empty
 
+  // 설정 화면 진입할 때마다 /predict_hourly 재호출 (서버 현재 시각 반영)
   useEffect(() => {
     if (
       !patient ||
@@ -28,6 +33,8 @@ export default function SettingsPage() {
       !patient.destination
     ) {
       setHourlyItems(null);
+      setCurrentHour(null);
+      setCurrentEtaMin(null);
       setHourlyStatus('empty');
       return undefined;
     }
@@ -35,21 +42,33 @@ export default function SettingsPage() {
     let cancelled = false;
     setHourlyStatus('loading');
     setHourlyItems(null);
+    setCurrentHour(null);
+    setCurrentEtaMin(null);
 
     void (async () => {
       try {
-        const items = await fetchEtaHourly({
+        const result = await fetchEtaHourly({
           startFloor: patient.startFloor,
           destination: patient.destination,
           destinationFloor: patient.destinationFloor,
         });
         if (cancelled) return;
-        setHourlyItems(items);
+        setHourlyItems(result.hourly);
+        setCurrentHour(
+          result.current_hour != null ? Number(result.current_hour) : null,
+        );
+        setCurrentEtaMin(
+          result.current_eta_min != null
+            ? Math.ceil(Number(result.current_eta_min))
+            : null,
+        );
         setHourlyStatus('ready');
       } catch (err) {
         console.warn('predict_hourly failed', err);
         if (cancelled) return;
         setHourlyItems(null);
+        setCurrentHour(null);
+        setCurrentEtaMin(null);
         setHourlyStatus('error');
       }
     })();
@@ -57,7 +76,7 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [patient]);
+  }, [patient, location.key]);
 
   const maxEta = useMemo(() => {
     if (!hourlyItems?.length) return 1;
@@ -133,8 +152,15 @@ export default function SettingsPage() {
 
         {hourlyStatus === 'ready' && hourlyItems && (
           <>
+            {currentHour != null && currentEtaMin != null && (
+              <p className="eta-hourly__now">
+                현재 {currentHour}시 기준 · 예상 이동시간 약 {currentEtaMin}분
+              </p>
+            )}
+
             <p className="eta-hourly__caption">
-              가로축 시간대 · 세로축 ETA(분) — 붐비는 시간대일수록 막대가 길어집니다
+              가로축 시간대 · 세로축 ETA(분) — 붐비는 시간대일수록 막대가
+              길어집니다
             </p>
             <div
               className="eta-hourly-chart"
@@ -143,17 +169,28 @@ export default function SettingsPage() {
             >
               {hourlyItems.map((row) => {
                 const heightPct = Math.round((row.eta_min / maxEta) * 100);
-                const busy = row.eta_min >= maxEta - 1;
+                const isNow = currentHour != null && row.hour === currentHour;
                 return (
-                  <div key={row.hour} className="eta-hourly-chart__col">
-                    <span className="eta-hourly-chart__value">{row.eta_min}</span>
+                  <div
+                    key={row.hour}
+                    className={`eta-hourly-chart__col${
+                      isNow ? ' eta-hourly-chart__col--now' : ''
+                    }`}
+                  >
+                    {isNow ? (
+                      <span className="eta-hourly-chart__badge">지금</span>
+                    ) : (
+                      <span className="eta-hourly-chart__value">{row.eta_min}</span>
+                    )}
                     <div className="eta-hourly-chart__track">
                       <div
                         className={`eta-hourly-chart__bar${
-                          busy ? ' eta-hourly-chart__bar--busy' : ''
+                          isNow ? ' eta-hourly-chart__bar--now' : ''
                         }`}
                         style={{ height: `${Math.max(heightPct, 8)}%` }}
-                        title={`${row.hour}시 · ${row.eta_min}분`}
+                        title={`${row.hour}시 · ${row.eta_min}분${
+                          isNow ? ' (지금)' : ''
+                        }`}
                       />
                     </div>
                     <span className="eta-hourly-chart__hour">{row.hour}</span>
@@ -175,13 +212,25 @@ export default function SettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {hourlyItems.map((row) => (
-                    <tr key={`t-${row.hour}`}>
-                      <td>{row.hour}시</td>
-                      <td>{row.eta_min}</td>
-                      <td>{row.transport_count_now}</td>
-                    </tr>
-                  ))}
+                  {hourlyItems.map((row) => {
+                    const isNow =
+                      currentHour != null && row.hour === currentHour;
+                    return (
+                      <tr
+                        key={`t-${row.hour}`}
+                        className={isNow ? 'eta-hourly-table__row--now' : undefined}
+                      >
+                        <td>
+                          {row.hour}시
+                          {isNow ? (
+                            <span className="eta-hourly-table__now-tag">지금</span>
+                          ) : null}
+                        </td>
+                        <td>{row.eta_min}</td>
+                        <td>{row.transport_count_now}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -190,6 +239,8 @@ export default function SettingsPage() {
               채혈실 시간대별 환자 분포를 참고해 생성한 데이터로 학습한 예측
               결과입니다. 현재는 개념 증명(합성 데이터) 단계이며, 실제 이송
               로그가 쌓이면 재학습됩니다.
+              <br />
+              접속한 현재 시각을 기준으로 예측값을 표시합니다.
             </p>
           </>
         )}

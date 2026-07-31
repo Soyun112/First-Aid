@@ -947,6 +947,15 @@ a {
   color: var(--text-muted);
 }
 
+.eta-hourly__now {
+  margin: 0 0 10px !important;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
 .eta-hourly__error {
   margin: 0 !important;
   font-size: 0.95rem;
@@ -964,7 +973,7 @@ a {
   display: flex;
   align-items: flex-end;
   gap: 4px;
-  height: 140px;
+  height: 156px;
   padding: 4px 0 0;
   margin-bottom: 14px;
   overflow-x: auto;
@@ -980,12 +989,31 @@ a {
   height: 100%;
 }
 
+.eta-hourly-chart__col--now {
+  min-width: 22px;
+  max-width: 40px;
+}
+
+.eta-hourly-chart__badge {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #fff;
+  background: var(--accent);
+  white-space: nowrap;
+}
+
 .eta-hourly-chart__value {
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--text-muted);
   line-height: 1;
   margin-bottom: 4px;
+  opacity: 0.85;
 }
 
 .eta-hourly-chart__track {
@@ -1000,21 +1028,30 @@ a {
   width: 70%;
   min-height: 4px;
   border-radius: 3px 3px 0 0;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
+  background: #d7e8e8;
+  border: 1px solid #b5d0d0;
   border-bottom: none;
+  opacity: 0.75;
   transition: height 0.25s ease;
 }
 
-.eta-hourly-chart__bar--busy {
+.eta-hourly-chart__bar--now {
+  width: 78%;
   background: var(--accent);
   border-color: var(--accent-hover);
+  opacity: 1;
+  box-shadow: 0 0 0 1px var(--accent-soft);
 }
 
 .eta-hourly-chart__hour {
   margin-top: 6px;
   font-size: 0.65rem;
   color: var(--text-muted);
+}
+
+.eta-hourly-chart__col--now .eta-hourly-chart__hour {
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .eta-hourly-table-wrap {
@@ -1048,6 +1085,27 @@ a {
 
 .eta-hourly-table td:nth-child(2) {
   font-weight: 600;
+}
+
+.eta-hourly-table__row--now {
+  background: var(--accent-soft);
+}
+
+.eta-hourly-table__row--now td {
+  font-weight: 700;
+  color: var(--accent-hover);
+}
+
+.eta-hourly-table__now-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: middle;
+  color: #fff;
+  background: var(--accent);
 }
 
 /* ?붴?Staff remote (playback control) ?붴?*/

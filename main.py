@@ -204,7 +204,9 @@ class HourlyItem(BaseModel):
 
 
 class PredictHourlyResponse(BaseModel):
-    items: list[HourlyItem]
+    current_hour: int
+    current_eta_min: int
+    hourly: list[HourlyItem]
 
 
 @app.get("/health")
@@ -219,8 +221,8 @@ def health() -> dict:
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest) -> PredictResponse:
     now = datetime.now()
-    hour = now.hour
-    weekday = now.weekday()
+    hour = int(now.hour)
+    weekday = int(now.weekday())
     count = (
         req.transport_count_now
         if req.transport_count_now is not None
@@ -240,10 +242,22 @@ def predict(req: PredictRequest) -> PredictResponse:
 
 @app.post("/predict_hourly", response_model=PredictHourlyResponse)
 def predict_hourly(req: PredictRequest) -> PredictHourlyResponse:
-    """6시~21시 각 시간대 ETA (설정 화면 표/그래프용)"""
-    weekday = datetime.now().weekday()
-    items: list[HourlyItem] = []
+    """6시~21시 각 시간대 ETA + 현재 시각 기준 ETA (설정 화면용)"""
+    now = datetime.now()
+    current_hour = int(now.hour)
+    weekday = int(now.weekday())
 
+    current_count = default_transport_count(current_hour)
+    current_eta_min = predict_eta_minutes(
+        start_floor=req.start_floor,
+        destination=req.destination,
+        destination_floor=req.destination_floor,
+        transport_count_now=current_count,
+        hour=current_hour,
+        weekday=weekday,
+    )
+
+    hourly: list[HourlyItem] = []
     for hour in range(6, 22):  # 6 ~ 21 inclusive
         count = default_transport_count(hour)
         eta = predict_eta_minutes(
@@ -254,11 +268,15 @@ def predict_hourly(req: PredictRequest) -> PredictHourlyResponse:
             hour=hour,
             weekday=weekday,
         )
-        items.append(
+        hourly.append(
             HourlyItem(hour=hour, eta_min=eta, transport_count_now=count)
         )
 
-    return PredictHourlyResponse(items=items)
+    return PredictHourlyResponse(
+        current_hour=current_hour,
+        current_eta_min=current_eta_min,
+        hourly=hourly,
+    )
 
 
 # uvicorn main:app --reload --host 0.0.0.0 --port 8001

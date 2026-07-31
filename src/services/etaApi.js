@@ -125,7 +125,11 @@ export async function fetchEtaPredict(params) {
  * 실패 시 throw — 호출부에서 섹션만 에러 표시
  *
  * @param {{ startFloor: number, destination: string, destinationFloor: number }} params
- * @returns {Promise<Array<{ hour: number, eta_min: number, transport_count_now: number }>>}
+ * @returns {Promise<{
+ *   current_hour: number | null,
+ *   current_eta_min: number | null,
+ *   hourly: Array<{ hour: number, eta_min: number, transport_count_now: number }>
+ * }>}
  */
 export async function fetchEtaHourly(params) {
   const { startFloor, destination, destinationFloor } = params;
@@ -161,16 +165,26 @@ export async function fetchEtaHourly(params) {
     }
 
     const data = await res.json();
-    const items = Array.isArray(data?.items) ? data.items : null;
-    if (!items || items.length === 0) {
+    const rows = Array.isArray(data?.hourly)
+      ? data.hourly
+      : Array.isArray(data?.items)
+        ? data.items
+        : null;
+    if (!rows || rows.length === 0) {
       throw new Error('empty hourly items');
     }
 
-    return items.map((row) => ({
-      hour: Number(row.hour),
-      eta_min: Math.ceil(Number(row.eta_min)),
-      transport_count_now: Number(row.transport_count_now ?? 0),
-    }));
+    return {
+      current_hour: data?.current_hour ?? null,
+      current_eta_min: data?.current_eta_min ?? null,
+      hourly: rows.map((row) => ({
+        hour: Number(row.hour),
+        eta_min: Math.ceil(Number(row.eta_min)),
+        transport_count_now: Number(
+          row.transport_count_now ?? row.count ?? 0,
+        ),
+      })),
+    };
   } finally {
     clearTimeout(timer);
   }
