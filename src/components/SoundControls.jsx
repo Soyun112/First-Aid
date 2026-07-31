@@ -58,8 +58,8 @@ export default function SoundControls({
       </label>
 
       <p className="sound-controls__note">
-        「시작」을 누르면 AI 멘트가 먼저 재생되고, 끝난 뒤 선택한 배경음악이 이어집니다.
-        음량 슬라이더는 배경음악에 바로 반영됩니다.
+        화면 진입 시 안심 멘트가 자동 생성됩니다. 「시작」을 누르면 멘트를 먼저 읽고,
+        끝나면 선택한 배경음악이 이어집니다.
       </p>
     </section>
   );

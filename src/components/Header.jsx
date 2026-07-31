@@ -7,17 +7,15 @@ export default function Header() {
   const isPlayback = pathname.startsWith('/playback');
   const {
     aiMessage,
-    aiMessageSource,
     aiMessageLoading,
     aiPanelOpen,
     setAiPanelOpen,
     requestAiMessage,
-    input,
   } = useTransport();
 
   const handleOpenPanel = async () => {
     setAiPanelOpen(true);
-    if (!aiMessageLoading) {
+    if (!aiMessageLoading && !aiMessage) {
       await requestAiMessage({ speak: false });
     }
   };
@@ -26,7 +24,7 @@ export default function Header() {
     <>
       <header className={`app-header ${isPlayback ? 'app-header--compact' : ''}`}>
         <div className="app-header__brand">
-          <Link to="/input" className="app-header__logo">
+          <Link to="/alert" className="app-header__logo">
             삼성병원
           </Link>
           {!isPlayback && (
@@ -65,8 +63,6 @@ export default function Header() {
         open={aiPanelOpen}
         onClose={() => setAiPanelOpen(false)}
         message={aiMessage}
-        input={input}
-        source={aiMessageSource}
         loading={aiMessageLoading}
       />
     </>

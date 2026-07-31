@@ -9,7 +9,7 @@ export default function EntryPage() {
   const [error, setError] = useState('');
 
   if (isAuthenticated) {
-    return <Navigate to="/input" replace />;
+    return <Navigate to="/alert" replace />;
   }
 
   const handleSubmit = (e) => {
@@ -17,7 +17,7 @@ export default function EntryPage() {
     setError('');
     const result = login(code);
     if (result.ok) {
-      navigate('/input');
+      navigate('/alert');
     } else {
       setError(result.message);
     }

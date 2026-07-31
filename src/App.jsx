@@ -4,9 +4,10 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { TransportProvider } from './context/TransportContext';
 import EntryPage from './pages/EntryPage';
-import InputPage from './pages/InputPage';
+import PatientConfirmPage from './pages/PatientConfirmPage';
 import PlaybackPage from './pages/PlaybackPage';
 import SettingsPage from './pages/SettingsPage';
+import TransportAlertPage from './pages/TransportAlertPage';
 
 function StaffLayout({ children }) {
   return (
@@ -33,14 +34,23 @@ export default function App() {
           <Routes>
             <Route path="/" element={<EntryPage />} />
             <Route
-              path="/input"
+              path="/alert"
               element={
                 <ProtectedStaff>
-                  <InputPage />
+                  <TransportAlertPage />
                 </ProtectedStaff>
               }
             />
-            <Route path="/recommend" element={<Navigate to="/input" replace />} />
+            <Route
+              path="/patient"
+              element={
+                <ProtectedStaff>
+                  <PatientConfirmPage />
+                </ProtectedStaff>
+              }
+            />
+            <Route path="/input" element={<Navigate to="/patient" replace />} />
+            <Route path="/recommend" element={<Navigate to="/alert" replace />} />
             <Route path="/projector" element={<Navigate to="/" replace />} />
             <Route
               path="/playback"

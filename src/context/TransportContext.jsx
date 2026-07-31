@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { DEMO_PATIENT } from '../data/demoRequest';
 import { DEFAULT_INPUT, VOLUME_DEFAULT } from '../data/options';
 import { fetchComfortMessage } from '../services/messageApi';
 import { speak, stopSpeaking } from '../services/tts';
@@ -7,7 +8,9 @@ const TransportContext = createContext(null);
 
 export function TransportProvider({ children }) {
   const [input, setInput] = useState({ ...DEFAULT_INPUT });
-  /** 입력 완료 후 이동 중 화면 진입 여부 */
+  /** 환자 정보 확인에서 확정한 데모 환자 */
+  const [patient, setPatient] = useState(null);
+  /** 이동 중 화면 진입 여부 */
   const [sessionActive, setSessionActive] = useState(false);
   const [defaultVolume, setDefaultVolume] = useState(VOLUME_DEFAULT);
   const [aiMessage, setAiMessage] = useState('');
@@ -15,17 +18,31 @@ export function TransportProvider({ children }) {
   const [aiMessageLoading, setAiMessageLoading] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const fetchLock = useRef(false);
+  const patientRef = useRef(null);
+  const inputRef = useRef(input);
+
+  patientRef.current = patient;
+  inputRef.current = input;
 
   const updateInput = useCallback((key, value) => {
     setInput((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const startTransport = useCallback(() => {
+  /** 환자 정보 확인 → 이동 중 시작 */
+  const confirmPatientAndStart = useCallback((patientData = DEMO_PATIENT) => {
+    setPatient({ ...patientData });
+    setInput({
+      ageGroup: patientData.ageGroup || 'adult',
+      duration: patientData.durationId || '5',
+    });
+    setAiMessage('');
+    setAiMessageSource(null);
     setSessionActive(true);
   }, []);
 
   const resetSession = useCallback(() => {
     setSessionActive(false);
+    setPatient(null);
     setAiMessage('');
     setAiMessageSource(null);
     setAiMessageLoading(false);
@@ -34,8 +51,8 @@ export function TransportProvider({ children }) {
   }, []);
 
   /**
-   * Gemini 멘트 요청 (공통)
-   * @param {{ speak?: boolean, volume?: number, onSpeakEnd?: () => void }} options
+   * Gemini 멘트 요청
+   * @param {{ speak?: boolean, volume?: number, onSpeakEnd?: () => void, force?: boolean }} options
    */
   const requestAiMessage = useCallback(
     async (options = {}) => {
@@ -43,14 +60,25 @@ export function TransportProvider({ children }) {
         speak: shouldSpeak = false,
         volume = defaultVolume,
         onSpeakEnd,
+        force = false,
       } = options;
 
-      if (fetchLock.current) return null;
+      if (fetchLock.current && !force) return null;
       fetchLock.current = true;
       setAiMessageLoading(true);
 
+      const p = patientRef.current;
+      const base = inputRef.current;
+      const payload = {
+        ...base,
+        ageGroup: p?.ageGroup || base.ageGroup,
+        duration: p?.durationId || base.duration,
+        destination: p?.to || '',
+        origin: p?.from || '',
+      };
+
       try {
-        const result = await fetchComfortMessage(input);
+        const result = await fetchComfortMessage(payload);
         setAiMessage(result.message);
         setAiMessageSource(result.source);
 
@@ -69,7 +97,7 @@ export function TransportProvider({ children }) {
         fetchLock.current = false;
       }
     },
-    [input, defaultVolume],
+    [defaultVolume],
   );
 
   const value = useMemo(
@@ -77,8 +105,9 @@ export function TransportProvider({ children }) {
       input,
       updateInput,
       setInput,
+      patient,
+      confirmPatientAndStart,
       sessionActive,
-      startTransport,
       resetSession,
       defaultVolume,
       setDefaultVolume,
@@ -92,8 +121,9 @@ export function TransportProvider({ children }) {
     [
       input,
       updateInput,
+      patient,
+      confirmPatientAndStart,
       sessionActive,
-      startTransport,
       resetSession,
       defaultVolume,
       aiMessage,

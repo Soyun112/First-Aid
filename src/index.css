@@ -845,6 +845,51 @@ a {
   margin-bottom: 6px;
 }
 
+/* ── Transport alert (demo request) ── */
+.alert-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  box-shadow: var(--shadow);
+}
+
+.alert-card__eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.alert-card__route {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.alert-card__arrow {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.alert-card__summary {
+  margin: 0 0 18px;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.alert-card .btn {
+  margin-top: 4px;
+}
+
 .settings-info {
   margin: 0;
 }

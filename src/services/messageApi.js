@@ -14,16 +14,39 @@ export const API_BASE =
 /** Render cold start 대비 (최대 90초) */
 const REQUEST_TIMEOUT_MS = 90_000;
 
-const DEFAULT_FALLBACK =
-  '지금은 안전하게 이동하고 있어요. 조금만 기다리면 곧 도착하니, 옆에 의료진과 함께 마음 편히 계셔도 괜찮아요.';
+function buildPatientFallback(input = {}) {
+  const dest = input.destination || '목적지';
+  const durationLabel =
+    input.duration === '3'
+      ? '3분'
+      : input.duration === '7'
+        ? '7분'
+        : input.duration === '10'
+          ? '10분'
+          : '5분';
+
+  if (input.ageGroup === 'child') {
+    return (
+      `지금 ${dest} 쪽으로 천천히 가고 있어요. ` +
+      `약 ${durationLabel} 정도면 도착할 거예요. ` +
+      '옆에 선생님들이 함께 계시니까 무섭지 않아도 괜찮아요.'
+    );
+  }
+
+  return (
+    `지금은 ${dest}로 이동하고 있어요. ` +
+    `약 ${durationLabel} 정도 남았고, 천천히 안전하게 가고 있습니다. ` +
+    '곧 도착하니 마음 편히 계셔도 괜찮아요.'
+  );
+}
 
 /**
- * @param {object} input — TransportContext input
+ * @param {object} input — ageGroup, duration, destination?, origin?, …
  * @param {{ fallback?: string }} [options]
  * @returns {Promise<{ message: string, source: 'api' | 'fallback', error?: string }>}
  */
 export async function fetchComfortMessage(input, options = {}) {
-  const fallback = options.fallback || DEFAULT_FALLBACK;
+  const fallback = options.fallback || buildPatientFallback(input);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -40,6 +63,8 @@ export async function fetchComfortMessage(input, options = {}) {
         religion: input.religion ?? MESSAGE_DEFAULTS.religion,
         duration: input.duration,
         anxiety: input.anxiety ?? MESSAGE_DEFAULTS.anxiety,
+        destination: input.destination || '',
+        origin: input.origin || '',
       }),
       signal: controller.signal,
     });

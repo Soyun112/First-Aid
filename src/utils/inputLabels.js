@@ -1,13 +1,12 @@
-import { AGE_GROUPS, DURATIONS } from '../data/options';
+/** 환자·입력 요약 라벨 */
 
-function findLabel(list, id) {
-  return list.find((x) => x.id === id)?.label ?? id;
-}
-
-/** 입력값을 발표용 요약 라벨로 변환 */
-export function summarizeInput(input) {
+export function summarizePatient(patient) {
+  if (!patient) return null;
   return {
-    age: findLabel(AGE_GROUPS, input.ageGroup),
-    duration: findLabel(DURATIONS, input.duration),
+    name: patient.name,
+    age: patient.ageLabel,
+    from: patient.from,
+    to: patient.to,
+    bed: patient.bed,
   };
 }

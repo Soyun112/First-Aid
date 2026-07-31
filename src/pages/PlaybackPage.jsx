@@ -8,7 +8,7 @@ import {
   VOLUME_MAX,
   resolveTrackSrc,
 } from '../data/options';
-import { stopSpeaking } from '../services/tts';
+import { speak, stopSpeaking } from '../services/tts';
 
 function formatTime(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -27,17 +27,21 @@ function clampVolume(v) {
 }
 
 /**
- * 이동 중 화면 — 타이머 + 사운드 제어
+ * 이동 중 화면
+ * - 진입 시 Gemini 멘트 자동 생성
+ * - 「시작」: TTS → 배경음악 (생성 지연 시 음악 선재생 후 멘트)
  */
 export default function PlaybackPage() {
   const navigate = useNavigate();
   const {
     input,
+    patient,
     sessionActive,
     resetSession,
     defaultVolume,
-    requestAiMessage,
+    aiMessage,
     aiMessageLoading,
+    requestAiMessage,
     setAiPanelOpen,
   } = useTransport();
 
@@ -48,17 +52,22 @@ export default function PlaybackPage() {
   const [volume, setVolume] = useState(() => clampVolume(defaultVolume));
   const [startHint, setStartHint] = useState('');
   const [started, setStarted] = useState(false);
-  const [phase, setPhase] = useState('idle');
+  const [phase, setPhase] = useState('idle'); // idle | waiting | speaking | music
 
   const audioRef = useRef(null);
   const volumeRef = useRef(volume);
   const soundEnabledRef = useRef(soundEnabled);
+  const trackIdRef = useRef(trackId);
   const playSessionRef = useRef(0);
+  /** Start 눌렀는데 멘트가 아직 없을 때 — 음악 선재생 후 멘트 대기 */
+  const pendingSpeakSessionRef = useRef(null);
+  const prefetchDoneRef = useRef(false);
 
   const totalSeconds = useMemo(() => {
+    if (patient?.durationMinutes) return patient.durationMinutes * 60;
     const d = DURATIONS.find((x) => x.id === input.duration);
     return (d?.minutes ?? 5) * 60;
-  }, [input.duration]);
+  }, [patient, input.duration]);
 
   const [remaining, setRemaining] = useState(totalSeconds);
 
@@ -69,6 +78,10 @@ export default function PlaybackPage() {
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
+
+  useEffect(() => {
+    trackIdRef.current = trackId;
+  }, [trackId]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -88,9 +101,18 @@ export default function PlaybackPage() {
     return () => clearInterval(id);
   }, []);
 
+  // 진입 시 멘트 자동 생성 (버튼 없이)
+  useEffect(() => {
+    if (!sessionActive || prefetchDoneRef.current) return undefined;
+    prefetchDoneRef.current = true;
+    void requestAiMessage({ speak: false });
+    return undefined;
+  }, [sessionActive, requestAiMessage]);
+
   useEffect(() => {
     return () => {
       playSessionRef.current += 1;
+      pendingSpeakSessionRef.current = null;
       stopSpeaking();
       const audio = audioRef.current;
       if (audio) {
@@ -108,6 +130,7 @@ export default function PlaybackPage() {
   useEffect(() => {
     if (soundEnabled === false) {
       playSessionRef.current += 1;
+      pendingSpeakSessionRef.current = null;
       stopSpeaking();
       const audio = audioRef.current;
       if (audio) {
@@ -123,9 +146,15 @@ export default function PlaybackPage() {
     }
   }, [soundEnabled]);
 
-  if (!sessionActive) {
-    return <Navigate to="/input" replace />;
-  }
+  const pauseMusic = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    try {
+      audio.pause();
+    } catch {
+      /* ignore */
+    }
+  };
 
   const stopMusic = () => {
     const audio = audioRef.current;
@@ -140,18 +169,11 @@ export default function PlaybackPage() {
     }
   };
 
-  const stopAllAudio = () => {
-    playSessionRef.current += 1;
-    stopSpeaking();
-    stopMusic();
-    setPhase('idle');
-  };
-
   const playSelectedMusic = async () => {
     const audio = audioRef.current;
     if (!audio) return false;
 
-    const resolved = resolveTrackSrc(trackId);
+    const resolved = resolveTrackSrc(trackIdRef.current);
     if (!resolved.src) {
       setStartHint('재생할 음원을 찾을 수 없습니다');
       return false;
@@ -180,9 +202,45 @@ export default function PlaybackPage() {
     }
   };
 
-  const handleStart = async () => {
-    if (aiMessageLoading) return;
+  const speakThenMusic = (text, session) => {
+    pauseMusic();
+    setPhase('speaking');
+    speak(text, {
+      volume: Math.min(1, Math.max(0, volumeRef.current)),
+      onEnd: () => {
+        if (playSessionRef.current !== session) return;
+        if (soundEnabledRef.current === false) return;
+        void playSelectedMusic();
+      },
+    });
+  };
 
+  // 생성 지연으로 음악 선재생 중 → 멘트 준비되면 TTS 후 음악 이어가기
+  useEffect(() => {
+    const session = pendingSpeakSessionRef.current;
+    if (session == null) return;
+    if (!aiMessage || aiMessageLoading) return;
+    if (playSessionRef.current !== session) return;
+    if (soundEnabledRef.current === false) return;
+
+    pendingSpeakSessionRef.current = null;
+    speakThenMusic(aiMessage, session);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to message readiness
+  }, [aiMessage, aiMessageLoading]);
+
+  if (!sessionActive) {
+    return <Navigate to="/alert" replace />;
+  }
+
+  const stopAllAudio = () => {
+    playSessionRef.current += 1;
+    pendingSpeakSessionRef.current = null;
+    stopSpeaking();
+    stopMusic();
+    setPhase('idle');
+  };
+
+  const handleStart = async () => {
     if (soundEnabled === false) {
       setSoundEnabled(true);
       soundEnabledRef.current = true;
@@ -194,11 +252,30 @@ export default function PlaybackPage() {
 
     const session = playSessionRef.current + 1;
     playSessionRef.current = session;
+    pendingSpeakSessionRef.current = null;
     stopSpeaking();
     stopMusic();
-    setPhase('speaking');
 
-    await requestAiMessage({
+    // 멘트가 이미 있으면 TTS → 음악
+    if (aiMessage && !aiMessageLoading) {
+      speakThenMusic(aiMessage, session);
+      return;
+    }
+
+    // 생성 중이면 음악 선재생, 준비되면 멘트 이어서
+    if (aiMessageLoading) {
+      setPhase('waiting');
+      pendingSpeakSessionRef.current = session;
+      await playSelectedMusic();
+      if (playSessionRef.current === session) {
+        setPhase('waiting');
+      }
+      return;
+    }
+
+    // 멘트 없음 · 로딩도 아님 → 다시 생성하며 TTS
+    setPhase('speaking');
+    const result = await requestAiMessage({
       speak: true,
       volume: clampVolume(volumeRef.current),
       onSpeakEnd: () => {
@@ -207,19 +284,40 @@ export default function PlaybackPage() {
         void playSelectedMusic();
       },
     });
+
+    // fetchLock 등으로 null이면 음악만이라도
+    if (!result && playSessionRef.current === session) {
+      setPhase('waiting');
+      pendingSpeakSessionRef.current = session;
+      await playSelectedMusic();
+    }
   };
 
   const handleEnd = () => {
     stopAllAudio();
     resetSession();
-    navigate('/input');
+    navigate('/alert');
   };
+
+  const statusHint =
+    phase === 'waiting'
+      ? '멘트를 준비하는 동안 배경음악을 재생합니다…'
+      : phase === 'speaking'
+        ? 'AI 멘트 재생 중… 끝나면 배경음악이 이어집니다'
+        : aiMessageLoading && !started
+          ? '안심 멘트를 생성하는 중…'
+          : '';
 
   return (
     <main className="page page--playback">
       <div className="playback-status" aria-live="polite">
         <p className="playback-status__label">{getStatusText(remaining)}</p>
         <p className="playback-status__time">{formatTime(remaining)}</p>
+        {patient && (
+          <p className="playback-status__plan">
+            {patient.name} · {patient.from} → {patient.to}
+          </p>
+        )}
       </div>
 
       <SoundControls
@@ -231,10 +329,8 @@ export default function PlaybackPage() {
         onVolumeChange={setVolume}
       />
 
-      {phase === 'speaking' && (
-        <p className="playback-start-hint playback-start-hint--info">
-          AI 멘트 재생 중… 끝나면 배경음악이 이어집니다
-        </p>
+      {statusHint && (
+        <p className="playback-start-hint playback-start-hint--info">{statusHint}</p>
       )}
       {startHint && <p className="playback-start-hint">{startHint}</p>}
 
@@ -243,9 +339,8 @@ export default function PlaybackPage() {
           type="button"
           className="btn btn--primary btn--sm playback-start-btn"
           onClick={handleStart}
-          disabled={aiMessageLoading}
         >
-          {aiMessageLoading ? '생성 중…' : started ? '다시 시작' : '시작'}
+          {started ? '다시 시작' : '시작'}
         </button>
         <button type="button" className="btn btn--danger" onClick={handleEnd}>
           이송 종료
