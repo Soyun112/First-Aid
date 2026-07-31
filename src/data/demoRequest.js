@@ -16,7 +16,11 @@ export const DEMO_PATIENT = {
   from: DEMO_TRANSPORT_REQUEST.from,
   to: DEMO_TRANSPORT_REQUEST.to,
   bed: 'B-812',
-  /** 이동 중 타이머용 (분) — 데모 기본 */
+  /** ETA API용 구조화 값 (환자 확인 → /predict) */
+  startFloor: 8,
+  destination: 'MRI',
+  destinationFloor: -3,
+  /** ETA 로드 전 타이머/멘트 임시값 (분) — 실제로는 AI ETA로 덮어씀 */
   durationMinutes: 5,
   durationId: '5',
 };

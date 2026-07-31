@@ -39,6 +39,9 @@ export default function PlaybackPage() {
     sessionActive,
     resetSession,
     defaultVolume,
+    etaMin,
+    etaLoading,
+    ensureEta,
     aiMessage,
     aiMessageLoading,
     requestAiMessage,
@@ -64,10 +67,11 @@ export default function PlaybackPage() {
   const prefetchDoneRef = useRef(false);
 
   const totalSeconds = useMemo(() => {
+    if (etaMin != null) return etaMin * 60;
     if (patient?.durationMinutes) return patient.durationMinutes * 60;
     const d = DURATIONS.find((x) => x.id === input.duration);
     return (d?.minutes ?? 5) * 60;
-  }, [patient, input.duration]);
+  }, [etaMin, patient, input.duration]);
 
   const [remaining, setRemaining] = useState(totalSeconds);
 
@@ -101,13 +105,16 @@ export default function PlaybackPage() {
     return () => clearInterval(id);
   }, []);
 
-  // 진입 시 멘트 자동 생성 (버튼 없이)
+  // 진입 시 ETA → Gemini 멘트 (ETA를 "약 O분"에 반영)
   useEffect(() => {
     if (!sessionActive || prefetchDoneRef.current) return undefined;
     prefetchDoneRef.current = true;
-    void requestAiMessage({ speak: false });
+    void (async () => {
+      await ensureEta();
+      await requestAiMessage({ speak: false });
+    })();
     return undefined;
-  }, [sessionActive, requestAiMessage]);
+  }, [sessionActive, ensureEta, requestAiMessage]);
 
   useEffect(() => {
     return () => {
@@ -304,9 +311,11 @@ export default function PlaybackPage() {
       ? '멘트를 준비하는 동안 배경음악을 재생합니다…'
       : phase === 'speaking'
         ? 'AI 멘트 재생 중… 끝나면 배경음악이 이어집니다'
-        : aiMessageLoading && !started
-          ? '안심 멘트를 생성하는 중…'
-          : '';
+        : etaLoading && !started
+          ? '예상 이동시간을 확인하는 중…'
+          : aiMessageLoading && !started
+            ? '안심 멘트를 생성하는 중…'
+            : '';
 
   return (
     <main className="page page--playback">

@@ -11,6 +11,7 @@ export default function Header() {
     aiPanelOpen,
     setAiPanelOpen,
     requestAiMessage,
+    etaMin,
   } = useTransport();
 
   const handleOpenPanel = async () => {
@@ -64,6 +65,7 @@ export default function Header() {
         onClose={() => setAiPanelOpen(false)}
         message={aiMessage}
         loading={aiMessageLoading}
+        etaMin={etaMin}
       />
     </>
   );

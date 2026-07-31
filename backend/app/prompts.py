@@ -1,7 +1,7 @@
 from app.labels import (
     AGE_LABELS,
-    DURATION_LABELS,
     SITUATION_LABELS,
+    duration_label,
     label,
 )
 from app.schemas import GenerateMessageRequest
@@ -9,7 +9,7 @@ from app.schemas import GenerateMessageRequest
 
 def build_prompt(req: GenerateMessageRequest) -> str:
     age = label(AGE_LABELS, req.age, req.age)
-    duration = label(DURATION_LABELS, req.duration, req.duration)
+    duration = duration_label(req.duration, req.duration)
     destination = (req.destination or "").strip() or label(
         SITUATION_LABELS, req.situation, "목적지"
     )
@@ -48,7 +48,7 @@ def build_prompt(req: GenerateMessageRequest) -> str:
 
 def build_fallback_message(req: GenerateMessageRequest) -> str:
     """Gemini 실패 시 발표용 기본 멘트 (2~3문장)"""
-    duration = label(DURATION_LABELS, req.duration, "잠시")
+    duration = duration_label(req.duration, "잠시")
     duration_short = duration.replace("약 ", "")
     destination = (req.destination or "").strip() or label(
         SITUATION_LABELS, req.situation, "목적지"

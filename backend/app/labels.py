@@ -25,8 +25,22 @@ DURATION_LABELS = {
     "3": "약 3분",
     "5": "약 5분",
     "7": "약 7분",
+    "8": "약 8분",
+    "9": "약 9분",
     "10": "약 10분",
+    "11": "약 11분",
+    "12": "약 12분",
 }
+
+
+def duration_label(key: str, fallback: str = "잠시") -> str:
+    """ETA 분(문자열) → '약 N분'. 고정 맵에 없어도 숫자면 포맷."""
+    if key in DURATION_LABELS:
+        return DURATION_LABELS[key]
+    text = (key or "").strip()
+    if text.isdigit():
+        return f"약 {text}분"
+    return fallback or text or "잠시"
 
 ANXIETY_LABELS = {
     "low": "낮음",

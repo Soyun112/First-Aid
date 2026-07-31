@@ -1,7 +1,13 @@
 /**
- * AI 생성 멘트 확인 패널 — 멘트 텍스트만 표시
+ * AI 생성 멘트 확인 패널 — 멘트 텍스트 + ETA 표시
  */
-export default function AiMessagePanel({ open, onClose, message, loading }) {
+export default function AiMessagePanel({
+  open,
+  onClose,
+  message,
+  loading,
+  etaMin = null,
+}) {
   if (!open) return null;
 
   return (
@@ -30,6 +36,7 @@ export default function AiMessagePanel({ open, onClose, message, loading }) {
         {!loading && message && (
           <p className="ai-panel__badge">
             AI가 이 상황에 맞춰 실시간 생성한 멘트입니다
+            {etaMin != null ? ` · 예상 이동시간 약 ${etaMin}분` : ''}
           </p>
         )}
 

@@ -14,16 +14,15 @@ export const API_BASE =
 /** Render cold start 대비 (최대 90초) */
 const REQUEST_TIMEOUT_MS = 90_000;
 
+function durationLabelFromInput(input = {}) {
+  const n = Number(input.duration);
+  if (Number.isFinite(n) && n > 0) return `${Math.ceil(n)}분`;
+  return '5분';
+}
+
 function buildPatientFallback(input = {}) {
   const dest = input.destination || '목적지';
-  const durationLabel =
-    input.duration === '3'
-      ? '3분'
-      : input.duration === '7'
-        ? '7분'
-        : input.duration === '10'
-          ? '10분'
-          : '5분';
+  const durationLabel = durationLabelFromInput(input);
 
   if (input.ageGroup === 'child') {
     return (
@@ -61,7 +60,7 @@ export async function fetchComfortMessage(input, options = {}) {
         situation: input.situation ?? MESSAGE_DEFAULTS.situation,
         age: input.ageGroup,
         religion: input.religion ?? MESSAGE_DEFAULTS.religion,
-        duration: input.duration,
+        duration: String(input.duration ?? '5'),
         anxiety: input.anxiety ?? MESSAGE_DEFAULTS.anxiety,
         destination: input.destination || '',
         origin: input.origin || '',

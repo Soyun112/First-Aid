@@ -1,10 +1,19 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { DEMO_PATIENT } from '../data/demoRequest';
 import { DEFAULT_INPUT, VOLUME_DEFAULT } from '../data/options';
+import { fetchEtaPredict } from '../services/etaApi';
 import { fetchComfortMessage } from '../services/messageApi';
 import { speak, stopSpeaking } from '../services/tts';
 
 const TransportContext = createContext(null);
+
+/** destination 코드 → Gemini situation 힌트 */
+const DEST_TO_SITUATION = {
+  MRI: 'mri',
+  CT: 'ct',
+  수술실: 'preop',
+  병동: 'ward',
+};
 
 export function TransportProvider({ children }) {
   const [input, setInput] = useState({ ...DEFAULT_INPUT });
@@ -13,16 +22,23 @@ export function TransportProvider({ children }) {
   /** 이동 중 화면 진입 여부 */
   const [sessionActive, setSessionActive] = useState(false);
   const [defaultVolume, setDefaultVolume] = useState(VOLUME_DEFAULT);
+  /** AI ETA (분) — 설정·멘트 팝업·타이머에서 공유 */
+  const [etaMin, setEtaMin] = useState(null);
+  const [etaSource, setEtaSource] = useState(null);
+  const [etaLoading, setEtaLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
   const [aiMessageSource, setAiMessageSource] = useState(null);
   const [aiMessageLoading, setAiMessageLoading] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const fetchLock = useRef(false);
+  const etaLock = useRef(false);
   const patientRef = useRef(null);
   const inputRef = useRef(input);
+  const etaMinRef = useRef(null);
 
   patientRef.current = patient;
   inputRef.current = input;
+  etaMinRef.current = etaMin;
 
   const updateInput = useCallback((key, value) => {
     setInput((prev) => ({ ...prev, [key]: value }));
@@ -35,6 +51,9 @@ export function TransportProvider({ children }) {
       ageGroup: patientData.ageGroup || 'adult',
       duration: patientData.durationId || '5',
     });
+    setEtaMin(null);
+    setEtaSource(null);
+    etaMinRef.current = null;
     setAiMessage('');
     setAiMessageSource(null);
     setSessionActive(true);
@@ -43,6 +62,10 @@ export function TransportProvider({ children }) {
   const resetSession = useCallback(() => {
     setSessionActive(false);
     setPatient(null);
+    setEtaMin(null);
+    setEtaSource(null);
+    etaMinRef.current = null;
+    setEtaLoading(false);
     setAiMessage('');
     setAiMessageSource(null);
     setAiMessageLoading(false);
@@ -51,7 +74,58 @@ export function TransportProvider({ children }) {
   }, []);
 
   /**
-   * Gemini 멘트 요청
+   * 환자 출발층·목적지·목적층으로 ETA 1회 확보 (실패 시 규칙 폴백)
+   * @returns {Promise<number | null>}
+   */
+  const ensureEta = useCallback(async () => {
+    if (etaMinRef.current != null) return etaMinRef.current;
+
+    const p = patientRef.current;
+    if (
+      p == null ||
+      p.startFloor == null ||
+      p.destinationFloor == null ||
+      !p.destination
+    ) {
+      return null;
+    }
+
+    if (etaLock.current) {
+      // 진행 중이면 짧게 폴링
+      for (let i = 0; i < 40; i += 1) {
+        await new Promise((r) => setTimeout(r, 100));
+        if (etaMinRef.current != null) return etaMinRef.current;
+        if (!etaLock.current) break;
+      }
+    }
+
+    etaLock.current = true;
+    setEtaLoading(true);
+    try {
+      const result = await fetchEtaPredict({
+        startFloor: p.startFloor,
+        destination: p.destination,
+        destinationFloor: p.destinationFloor,
+      });
+      const minutes = result.eta_min;
+      setEtaMin(minutes);
+      etaMinRef.current = minutes;
+      setEtaSource(result.source);
+      setInput((prev) => ({ ...prev, duration: String(minutes) }));
+      setPatient((prev) =>
+        prev
+          ? { ...prev, durationMinutes: minutes, durationId: String(minutes) }
+          : prev,
+      );
+      return minutes;
+    } finally {
+      setEtaLoading(false);
+      etaLock.current = false;
+    }
+  }, []);
+
+  /**
+   * Gemini 멘트 요청 (duration = eta_min)
    * @param {{ speak?: boolean, volume?: number, onSpeakEnd?: () => void, force?: boolean }} options
    */
   const requestAiMessage = useCallback(
@@ -67,17 +141,28 @@ export function TransportProvider({ children }) {
       fetchLock.current = true;
       setAiMessageLoading(true);
 
-      const p = patientRef.current;
-      const base = inputRef.current;
-      const payload = {
-        ...base,
-        ageGroup: p?.ageGroup || base.ageGroup,
-        duration: p?.durationId || base.duration,
-        destination: p?.to || '',
-        origin: p?.from || '',
-      };
-
       try {
+        // 멘트의 "약 O분"에 쓸 ETA 확보
+        let minutes = etaMinRef.current;
+        if (minutes == null) {
+          minutes = await ensureEta();
+        }
+
+        const p = patientRef.current;
+        const base = inputRef.current;
+        const durationStr = String(
+          minutes ?? p?.durationId ?? base.duration ?? '5',
+        );
+        const payload = {
+          ...base,
+          ageGroup: p?.ageGroup || base.ageGroup,
+          duration: durationStr,
+          destination: p?.to || '',
+          origin: p?.from || '',
+          situation:
+            DEST_TO_SITUATION[p?.destination] || base.situation || undefined,
+        };
+
         const result = await fetchComfortMessage(payload);
         setAiMessage(result.message);
         setAiMessageSource(result.source);
@@ -97,7 +182,7 @@ export function TransportProvider({ children }) {
         fetchLock.current = false;
       }
     },
-    [defaultVolume],
+    [defaultVolume, ensureEta],
   );
 
   const value = useMemo(
@@ -111,6 +196,10 @@ export function TransportProvider({ children }) {
       resetSession,
       defaultVolume,
       setDefaultVolume,
+      etaMin,
+      etaSource,
+      etaLoading,
+      ensureEta,
       aiMessage,
       aiMessageSource,
       aiMessageLoading,
@@ -126,6 +215,10 @@ export function TransportProvider({ children }) {
       sessionActive,
       resetSession,
       defaultVolume,
+      etaMin,
+      etaSource,
+      etaLoading,
+      ensureEta,
       aiMessage,
       aiMessageSource,
       aiMessageLoading,
