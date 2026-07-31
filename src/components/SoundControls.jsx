@@ -58,8 +58,8 @@ export default function SoundControls({
       </label>
 
       <p className="sound-controls__note">
-        화면 진입 시 안심 멘트가 자동 생성됩니다. 「시작」을 누르면 멘트를 먼저 읽고,
-        끝나면 선택한 배경음악이 이어집니다.
+        화면 진입 시 안심 멘트만 미리 생성합니다(소리 없음). 「시작」을 누르면
+        Gemini 멘트를 먼저 읽고, 끝나면 선택한 배경음악이 이어집니다.
       </p>
     </section>
   );

@@ -28,8 +28,8 @@ function clampVolume(v) {
 
 /**
  * 이동 중 화면
- * - 진입 시 Gemini 멘트 자동 생성
- * - 「시작」: TTS → 배경음악 (생성 지연 시 음악 선재생 후 멘트)
+ * - 진입 시 Gemini 멘트만 미리 생성 (소리 없음)
+ * - 「시작」: TTS(Gemini 멘트) → 배경음악 (항상 이 순서, 음악 선재생 없음)
  */
 export default function PlaybackPage() {
   const navigate = useNavigate();
@@ -62,7 +62,7 @@ export default function PlaybackPage() {
   const soundEnabledRef = useRef(soundEnabled);
   const trackIdRef = useRef(trackId);
   const playSessionRef = useRef(0);
-  /** Start 눌렀는데 멘트가 아직 없을 때 — 음악 선재생 후 멘트 대기 */
+  /** Start 후 멘트 대기 — 준비되면 TTS → 음악 (음악 먼저 재생하지 않음) */
   const pendingSpeakSessionRef = useRef(null);
   const prefetchDoneRef = useRef(false);
 
@@ -222,7 +222,7 @@ export default function PlaybackPage() {
     });
   };
 
-  // 생성 지연으로 음악 선재생 중 → 멘트 준비되면 TTS 후 음악 이어가기
+  // 멘트 대기 중 → 준비되면 TTS 후 음악 (음악은 TTS 이후에만)
   useEffect(() => {
     const session = pendingSpeakSessionRef.current;
     if (session == null) return;
@@ -263,40 +263,18 @@ export default function PlaybackPage() {
     stopSpeaking();
     stopMusic();
 
-    // 멘트가 이미 있으면 TTS → 음악
+    // 멘트가 이미 있으면 바로 TTS → 음악
     if (aiMessage && !aiMessageLoading) {
       speakThenMusic(aiMessage, session);
       return;
     }
 
-    // 생성 중이면 음악 선재생, 준비되면 멘트 이어서
-    if (aiMessageLoading) {
-      setPhase('waiting');
-      pendingSpeakSessionRef.current = session;
-      await playSelectedMusic();
-      if (playSessionRef.current === session) {
-        setPhase('waiting');
-      }
-      return;
-    }
+    // 멘트 대기(소리 없음) → 준비되면 useEffect에서 TTS → 음악
+    setPhase('waiting');
+    pendingSpeakSessionRef.current = session;
 
-    // 멘트 없음 · 로딩도 아님 → 다시 생성하며 TTS
-    setPhase('speaking');
-    const result = await requestAiMessage({
-      speak: true,
-      volume: clampVolume(volumeRef.current),
-      onSpeakEnd: () => {
-        if (playSessionRef.current !== session) return;
-        if (soundEnabledRef.current === false) return;
-        void playSelectedMusic();
-      },
-    });
-
-    // fetchLock 등으로 null이면 음악만이라도
-    if (!result && playSessionRef.current === session) {
-      setPhase('waiting');
-      pendingSpeakSessionRef.current = session;
-      await playSelectedMusic();
+    if (!aiMessageLoading) {
+      await requestAiMessage({ speak: false });
     }
   };
 
@@ -308,7 +286,7 @@ export default function PlaybackPage() {
 
   const statusHint =
     phase === 'waiting'
-      ? '멘트를 준비하는 동안 배경음악을 재생합니다…'
+      ? '안심 멘트를 준비하는 중… 준비가 되면 먼저 읽어 드립니다'
       : phase === 'speaking'
         ? 'AI 멘트 재생 중… 끝나면 배경음악이 이어집니다'
         : etaLoading && !started
